@@ -1,13 +1,17 @@
 /**
- * 消息管理器
- * 处理消息存储、撤回、重新生成、版本切换
+ * 消息管理器 - 对话分支树
+ * 参考 DeepSeek 官方对话模式
  */
 
 class MessageManager {
   constructor() {
-    this.messages = [];       // 所有消息
-    this.messageVersions = {}; // { messageId: [版本1, 版本2, ...] }
-    this.currentVersions = {}; // { messageId: 当前版本索引 }
+    this.tree = [];           // 对话树：[{ id, role, content, parentId, children: [id, ...], versions: [{content, timestamp}], currentVersion }]
+    this.currentLeaf = null;  // 当前叶节点ID
+    this.recalledIds = new Set(); // 已撤回的消息ID
+  }
+
+  _generateId() {
+    return 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
   }
 
   /**
@@ -17,146 +21,222 @@ class MessageManager {
     const msg = {
       id: options.id || this._generateId(),
       role: role,
-      content: content,
-      timestamp: Date.now(),
-      isStreaming: options.isStreaming || false,
-      isError: options.isError || false
+      parentId: options.parentId || this.currentLeaf,
+      children: [],
+      versions: [{ content, timestamp: Date.now() }],
+      currentVersion: 0,
+      timestamp: Date.now()
     };
 
-    this.messages.push(msg);
-
-    // 初始化版本管理
-    if (!this.messageVersions[msg.id]) {
-      this.messageVersions[msg.id] = [content];
-      this.currentVersions[msg.id] = 0;
-    }
-
-    return msg;
-  }
-
-  /**
-   * 更新消息内容（流式输出时使用）
-   */
-  updateMessage(messageId, content, isStreaming = true) {
-    const msg = this.messages.find(m => m.id === messageId);
-    if (msg) {
-      msg.content = content;
-      msg.isStreaming = isStreaming;
-      
-      // 更新版本
-      if (this.messageVersions[messageId]) {
-        this.messageVersions[messageId][this.currentVersions[messageId]] = content;
+    // 更新父节点的 children
+    if (msg.parentId) {
+      const parent = this._findNode(msg.parentId);
+      if (parent && !parent.children.includes(msg.id)) {
+        parent.children.push(msg.id);
       }
     }
+
+    this.tree.push(msg);
+    this.currentLeaf = msg.id;
     return msg;
   }
 
   /**
-   * 撤回消息（软删除，保留在版本历史中）
+   * 更新消息内容（流式输出）
+   */
+  updateMessage(messageId, content) {
+    const node = this._findNode(messageId);
+    if (node) {
+      node.versions[node.currentVersion].content = content;
+    }
+    return node;
+  }
+
+  /**
+   * 撤回消息（撤回这条及之后所有消息）
    */
   recallMessage(messageId) {
-    const msg = this.messages.find(m => m.id === messageId);
-    if (msg) {
-      msg.recalled = true;
-      msg.recalledContent = msg.content;
-      msg.content = '⏪ 此消息已撤回';
-    }
-    return msg;
+    const node = this._findNode(messageId);
+    if (!node) return;
+
+    // 收集这条消息及所有后代
+    const toRecall = this._getDescendants(messageId);
+    toRecall.add(messageId);
+
+    // 标记为已撤回
+    toRecall.forEach(id => this.recalledIds.add(id));
+
+    // 更新 currentLeaf 为撤回消息的父节点
+    const parentId = node.parentId;
+    this.currentLeaf = parentId;
+
+    return { recalledIds: toRecall, newCurrentLeaf: parentId };
   }
 
   /**
-   * 重新生成（创建新版本）
+   * 重新生成（从这条消息开始，创建新分支）
    */
-  regenerate(messageId, newContent) {
-    if (!this.messageVersions[messageId]) {
-      this.messageVersions[messageId] = [];
-    }
-    this.messageVersions[messageId].push(newContent);
-    this.currentVersions[messageId] = this.messageVersions[messageId].length - 1;
+  startRegenerate(messageId) {
+    const node = this._findNode(messageId);
+    if (!node) return null;
 
-    const msg = this.messages.find(m => m.id === messageId);
-    if (msg) {
-      msg.content = newContent;
-      msg.isStreaming = false;
-      msg.regenerated = true;
-    }
+    // 创建新版本
+    const newVersionIndex = node.versions.length;
+    node.versions.push({ content: '', timestamp: Date.now() });
+    node.currentVersion = newVersionIndex;
 
-    return msg;
+    // 清除旧分支的子节点标记（不删除数据，只是不再使用）
+    // 将 currentLeaf 设置为此消息
+    this.currentLeaf = messageId;
+
+    return { messageId, versionIndex: newVersionIndex };
   }
 
   /**
-   * 切换到上一版本
+   * 切换版本
    */
-  prevVersion(messageId) {
-    const versions = this.messageVersions[messageId];
-    if (!versions || versions.length <= 1) return null;
+  switchVersion(messageId, versionIndex) {
+    const node = this._findNode(messageId);
+    if (!node || versionIndex < 0 || versionIndex >= node.versions.length) return null;
 
-    let current = this.currentVersions[messageId] || 0;
-    current = (current - 1 + versions.length) % versions.length;
-    this.currentVersions[messageId] = current;
+    node.currentVersion = versionIndex;
+    this.currentLeaf = messageId;
 
-    const msg = this.messages.find(m => m.id === messageId);
-    if (msg) {
-      msg.content = versions[current];
-    }
-
-    return { content: versions[current], current, total: versions.length };
-  }
-
-  /**
-   * 切换到下一版本
-   */
-  nextVersion(messageId) {
-    const versions = this.messageVersions[messageId];
-    if (!versions || versions.length <= 1) return null;
-
-    let current = this.currentVersions[messageId] || 0;
-    current = (current + 1) % versions.length;
-    this.currentVersions[messageId] = current;
-
-    const msg = this.messages.find(m => m.id === messageId);
-    if (msg) {
-      msg.content = versions[current];
-    }
-
-    return { content: versions[current], current, total: versions.length };
+    return {
+      content: node.versions[versionIndex].content,
+      versionIndex,
+      totalVersions: node.versions.length
+    };
   }
 
   /**
    * 获取版本信息
    */
   getVersionInfo(messageId) {
-    const versions = this.messageVersions[messageId] || [];
-    const current = this.currentVersions[messageId] || 0;
+    const node = this._findNode(messageId);
+    if (!node) return { total: 0, current: 0, hasPrev: false, hasNext: false };
+
     return {
-      total: versions.length,
-      current: current + 1,
-      hasPrev: current > 0,
-      hasNext: current < versions.length - 1
+      total: node.versions.length,
+      current: node.currentVersion + 1,
+      hasPrev: node.currentVersion > 0,
+      hasNext: node.currentVersion < node.versions.length - 1
     };
+  }
+
+  /**
+   * 获取从根到当前叶子的消息链
+   */
+  getConversationChain() {
+    if (!this.currentLeaf) return [];
+
+    const chain = [];
+    let currentId = this.currentLeaf;
+
+    // 回溯到根
+    while (currentId) {
+      const node = this._findNode(currentId);
+      if (!node) break;
+
+      if (!this.recalledIds.has(currentId)) {
+        chain.unshift({
+          id: node.id,
+          role: node.role,
+          content: node.versions[node.currentVersion]?.content || ''
+        });
+      }
+
+      currentId = node.parentId;
+    }
+
+    return chain;
   }
 
   /**
    * 获取最近消息（用于API上下文）
    */
   getRecentMessages(count = 8) {
-    return this.messages
-      .filter(m => !m.recalled)
-      .slice(-count)
-      .map(m => ({ role: m.role, content: m.content }));
+    const chain = this.getConversationChain();
+    return chain.slice(-count);
   }
 
   /**
-   * 清除所有消息
+   * 获取某个消息及其在当前版本下的子消息
    */
-  clear() {
-    this.messages = [];
-    this.messageVersions = {};
-    this.currentVersions = {};
+  getMessageAndChildren(messageId) {
+    const node = this._findNode(messageId);
+    if (!node) return [];
+
+    const result = [{
+      id: node.id,
+      role: node.role,
+      content: node.versions[node.currentVersion]?.content || '',
+      recalled: this.recalledIds.has(node.id)
+    }];
+
+    // 只获取当前叶子链上的子节点
+    let childId = node.children.find(cid => this._isOnCurrentChain(cid));
+    while (childId) {
+      const child = this._findNode(childId);
+      if (!child) break;
+      result.push({
+        id: child.id,
+        role: child.role,
+        content: child.versions[child.currentVersion]?.content || '',
+        recalled: this.recalledIds.has(child.id)
+      });
+      childId = child.children.find(cid => this._isOnCurrentChain(cid));
+    }
+
+    return result;
   }
 
-  _generateId() {
-    return 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+  /**
+   * 清除所有
+   */
+  clear() {
+    this.tree = [];
+    this.currentLeaf = null;
+    this.recalledIds.clear();
+  }
+
+  /**
+   * 按角色获取消息（用于统计）
+   */
+  getMessagesByRole(role) {
+    return this.tree.filter(n => n.role === role && !this.recalledIds.has(n.id));
+  }
+
+  // ========== 私有方法 ==========
+
+  _findNode(id) {
+    return this.tree.find(n => n.id === id) || null;
+  }
+
+  _getDescendants(id) {
+    const descendants = new Set();
+    const node = this._findNode(id);
+    if (!node) return descendants;
+
+    const queue = [...node.children];
+    while (queue.length) {
+      const childId = queue.shift();
+      descendants.add(childId);
+      const child = this._findNode(childId);
+      if (child) queue.push(...child.children);
+    }
+    return descendants;
+  }
+
+  _isOnCurrentChain(id) {
+    let current = this.currentLeaf;
+    while (current) {
+      if (current === id) return true;
+      const node = this._findNode(current);
+      if (!node) return false;
+      current = node.parentId;
+    }
+    return false;
   }
 }
 
