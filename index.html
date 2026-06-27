@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, shrink-to-fit=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="灵境AI">
+  <meta name="theme-color" content="#f5f5f7">
+  <title>DeepSeek AI · 灵境</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="message-manager.js"></script>
+  <script src="stream.js"></script>
+  <script src="chat-manager.js"></script>
+  <style>
+    .conv-bar {
+      display: flex; align-items: center; padding: 6px 12px;
+      background: #ffffff; border-bottom: 0.5px solid #e0e0e0;
+      gap: 8px; flex-shrink: 0; position: relative; z-index: 10;
+    }
+    .conv-switcher-btn {
+      flex: 1; display: flex; align-items: center; gap: 6px;
+      background: #f2f2f7; border: none; border-radius: 16px;
+      padding: 8px 14px; font-size: 14px; font-weight: 600;
+      color: #1c1c1e; cursor: pointer;
+    }
+    .conv-new-btn {
+      background: #007aff; color: #fff; border: none;
+      width: 36px; height: 36px; border-radius: 50%;
+      font-size: 18px; cursor: pointer; flex-shrink: 0;
+    }
+    .conv-dropdown {
+      position: absolute; top: 100%; left: 12px; right: 12px;
+      background: #ffffff; border-radius: 14px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+      z-index: 50; overflow: hidden; margin-top: 4px;
+    }
+    .conv-dropdown-header {
+      padding: 12px 16px; font-weight: 700; font-size: 15px;
+      border-bottom: 0.5px solid #e0e0e0;
+    }
+    .conv-dropdown-list { max-height: 300px; overflow-y: auto; }
+    .conv-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 16px; cursor: pointer; border-bottom: 0.5px solid #f0f0f0;
+    }
+    .conv-item.active { background: #e8f0fe; }
+    .conv-item span:first-child { flex: 1; font-weight: 500; font-size: 14px; }
+    .conv-item .conv-del-btn {
+      background: none; border: none; color: #ff3b30; cursor: pointer; font-size: 14px; padding: 4px;
+    }
+    .conv-dropdown-footer {
+      display: flex; gap: 8px; padding: 10px 16px; border-top: 0.5px solid #e0e0e0;
+    }
+    .conv-action-btn {
+      flex: 1; background: #f2f2f7; border: none; border-radius: 12px;
+      padding: 8px; font-size: 13px; font-weight: 600; color: #007aff; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+<div class="app-container" id="appContainer">
+  <div class="status-bar-spacer"></div>
+
+  <div class="conv-bar" id="convBar">
+    <button class="conv-switcher-btn" id="convSwitcherBtn">
+      <span id="currentConvTitle">新对话</span>
+      <span style="font-size:10px;">▼</span>
+    </button>
+    <button class="conv-new-btn" id="convNewBtn">+</button>
+    <div class="conv-dropdown" id="convDropdown" style="display:none;">
+      <div class="conv-dropdown-header">📋 对话列表</div>
+      <div class="conv-dropdown-list" id="convDropdownList"></div>
+      <div class="conv-dropdown-footer">
+        <button class="conv-action-btn" id="convCharCardBtn">🎭 角色卡</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="chat-area" id="chatArea"></div>
+
+  <div class="input-container">
+    <input type="text" id="userInput" placeholder="输入消息..." autocomplete="off" autocorrect="off" autocapitalize="none" />
+    <button class="send-btn" id="sendBtn">↑</button>
+  </div>
+
+  <div class="menu-trigger">
+    <button class="menu-button" id="menuButton">📋 菜单</button>
+  </div>
+
+  <div class="full-panel" id="forumWrapper">
+    <div class="panel-header"><span>🌐 灵境论坛</span><span class="panel-close" id="forumClose">✕</span></div>
+    <iframe id="forumIframe" class="panel-iframe" src="forum.html" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
+  </div>
+
+  <div class="full-panel" id="settingsWrapper">
+    <div class="panel-header"><span>⚙️ AI 对话设置</span><span class="panel-close" id="settingsClose">✕</span></div>
+    <iframe id="settingsIframe" class="panel-iframe" src="settings.html" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
+  </div>
+
+  <div class="full-panel" id="paramsWrapper">
+    <div class="panel-header"><span>🎛️ AI 参数调节</span><span class="panel-close" id="paramsClose">✕</span></div>
+    <iframe id="paramsIframe" class="panel-iframe" src="params.html" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
+  </div>
+
+  <div class="full-panel" id="longModeWrapper">
+    <div class="panel-header"><span>📖 长对话模式</span><span class="panel-close" id="longModeClose">✕</span></div>
+    <iframe id="longModeIframe" class="panel-iframe" src="longmode.html" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
+  </div>
+
+  <div class="full-panel" id="characterCardWrapper">
+    <div class="panel-header"><span>🎭 角色卡管理</span><span class="panel-close" id="characterCardClose">✕</span></div>
+    <iframe id="characterCardIframe" class="panel-iframe" src="character-card.html" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
+  </div>
+</div>
+
+<div class="action-sheet-overlay" id="actionSheetOverlay">
+  <div class="action-sheet">
+    <div class="sheet-option" id="menuForum">🗨️ 进入论坛</div>
+    <div class="sheet-option" id="menuSettings">⚙️ AI 对话设置</div>
+    <div class="sheet-option" id="menuParams">🎛️ AI 参数调节</div>
+    <div class="sheet-option" id="menuLongMode">📖 长对话模式</div>
+    <div class="sheet-option cancel-option" id="menuCancel">取消</div>
+  </div>
+</div>
+
+<div class="key-overlay" id="keyOverlay">
+  <div class="key-dialog">
+    <h3>🔑 设置 API 密钥</h3>
+    <p>请输入你的 DeepSeek API 密钥<br>密钥仅保存在你的浏览器本地</p>
+    <input type="password" id="keyOverlayInput" placeholder="sk-xxxxxxxxxxxxxxxx" autocomplete="off">
+    <div class="key-btns">
+      <button class="key-skip-btn" id="keySkipBtn">稍后设置</button>
+      <button class="key-save-btn" id="keySaveBtn">保存</button>
+    </div>
+    <div class="key-status" id="keyStatus"></div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    const API_URL = 'https://api.deepseek.com/chat/completions';
+
+    let aiSettings = { name: '灵境AI', background: '', personality: '', opening: '', tone: '幽默风趣' };
+    let aiParams = { temperature: 1.0, topP: 0.9, maxTokens: null, useCustom: false };
+    let longModeSettings = {
+      enabled: false, narrativeView: 'third-person', detailLevel: 3, minWords: 200,
+      elements: { action: true, expression: true, psychology: true, environment: false, dialogue: false, sensory: false },
+      customInstructions: ''
+    };
+    let currentUserName = '探索者';
+    let isGenerating = false;
+
+    const chatManager = new ChatManager();
+
+    function getApiKey() { return localStorage.getItem('deepseek_api_key') || ''; }
+    function setApiKey(key) { localStorage.setItem('deepseek_api_key', key); }
+
+    const chatArea = document.getElementById('chatArea');
+    const userInput = document.getElementById('userInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const actionSheetOverlay = document.getElementById('actionSheetOverlay');
+    const forumWrapper = document.getElementById('forumWrapper');
+    const settingsWrapper = document.getElementById('settingsWrapper');
+    const paramsWrapper = document.getElementById('paramsWrapper');
+    const longModeWrapper = document.getElementById('longModeWrapper');
+    const characterCardWrapper = document.getElementById('characterCardWrapper');
+    const forumIframe = document.getElementById('forumIframe');
+    const settingsIframe = document.getElementById('settingsIframe');
+    const paramsIframe = document.getElementById('paramsIframe');
+    const longModeIframe = document.getElementById('longModeIframe');
+    const characterCardIframe = document.getElementById('characterCardIframe');
+    const keyOverlay = document.getElementById('keyOverlay');
+    const keyOverlayInput = document.getElementById('keyOverlayInput');
+    const keyStatus = document.getElementById('keyStatus');
+    const convDropdown = document.getElementById('convDropdown');
+    const convSwitcherBtn = document.getElementById('convSwitcherBtn');
+
+    let currentConvId = null;
+    let currentConvManager = null;
+
+    function getConv() {
+      const conv = chatManager.getActiveConversation();
+      if (conv.id !== currentConvId) {
+        currentConvId = conv.id;
+        currentConvManager = conv.manager;
+      }
+      return { id: currentConvId, manager: currentConvManager, meta: conv.meta };
+    }
+
+    (function() {
+      const savedKey = getApiKey();
+      if (!savedKey) { keyOverlay.style.display = 'flex'; }
+      else { keyOverlay.style.display = 'none'; }
+      document.getElementById('keySaveBtn').onclick = function() {
+        const key = keyOverlayInput.value.trim();
+        if (!key) { keyStatus.textContent = '⚠️ 请输入密钥'; keyStatus.style.color = '#ff3b30'; return; }
+        if (!key.startsWith('sk-')) { keyStatus.textContent = '⚠️ 密钥格式不正确'; keyStatus.style.color = '#ff3b30'; return; }
+        setApiKey(key);
+        keyStatus.textContent = '✅ 密钥已保存！'; keyStatus.style.color = '#34c759';
+        setTimeout(() => { keyOverlay.style.display = 'none'; }, 800);
+      };
+      document.getElementById('keySkipBtn').onclick = function() {
+        keyOverlay.style.display = 'none';
+        addMessage('assistant', '💡 你可以在菜单 → AI对话设置中随时设置API密钥');
+      };
+    })();
+
+    function loadSettings() {
+      try {
+        const s = JSON.parse(localStorage.getItem('ai_settings_v2'));
+        if (s) aiSettings = s;
+        const p = JSON.parse(localStorage.getItem('ai_params_v2'));
+        if (p) aiParams = p;
+        const l = JSON.parse(localStorage.getItem('long_mode_settings'));
+        if (l) longModeSettings = l;
+        const n = localStorage.getItem('user_name_v4');
+        if (n) currentUserName = n;
+      } catch(e) {}
+      currentConvId = null;
+      getConv();
+      refreshChatArea();
+      updateConvBar();
+      notifyAllIframes();
+    }
+
+    function notifyAllIframes() {
+      const conv = getConv();
+      const data = {
+        type: 'syncFromParent',
+        settings: aiSettings,
+        params: aiParams,
+        longMode: longModeSettings,
+        userName: currentUserName,
+        apiKey: getApiKey(),
+        characterCards: chatManager.getCharacterCards(),
+        chatHistory: conv.manager.getRecentMessages(10)
+      };
+      [settingsIframe, paramsIframe, longModeIframe, forumIframe, characterCardIframe].forEach(iframe => {
+        try { if (iframe && iframe.contentWindow) iframe.contentWindow.postMessage(data, '*'); } catch(e) {}
+      });
+    }
+
+    function getActiveCharacterSettings() {
+      const conv = getConv();
+      if (conv.meta.characterCardId) {
+        const card = chatManager.getCharacterCard(conv.meta.characterCardId);
+        if (card) return { name: card.name, background: card.background, personality: card.personality, tone: card.tone, opening: card.opening };
+      }
+      return aiSettings;
+    }
+
+    function refreshChatArea() {
+      chatArea.innerHTML = '';
+      const conv = getConv();
+      const chain = conv.manager.getConversationChain();
+      chain.forEach(msg => {
+        addMessageToDOM(msg.role, msg.content, msg.id);
+      });
+      if (chain.length === 0) {
+        const settings = getActiveCharacterSettings();
+        addMessage('assistant', settings.opening || `👋 你好，我是${settings.name}，有什么可以帮你的？`);
+      }
+    }
+
+    function updateConvBar() {
+      const conv = getConv();
+      const title = conv.meta.title || '新对话';
+      const card = conv.meta.characterCardId ? chatManager.getCharacterCard(conv.meta.characterCardId) : null;
+      document.getElementById('currentConvTitle').textContent = card ? card.avatar + ' ' + title : title;
+
+      const list = chatManager.getConversationList();
+      document.getElementById('convDropdownList').innerHTML = list.map(c => {
+        const cCard = c.characterCardId ? chatManager.getCharacterCard(c.characterCardId) : null;
+        const displayTitle = cCard ? cCard.avatar + ' ' + c.title : c.title;
+        return `
+          <div class="conv-item ${c.id === conv.id ? 'active' : ''}" onclick="switchConversation('${c.id}')">
+            <span>${displayTitle}</span>
+            <span style="font-size:10px;color:#8e8e93;">${c.messageCount}条</span>
+            <button class="conv-del-btn" onclick="event.stopPropagation();deleteConversation('${c.id}')">🗑</button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    window.switchConversation = function(convId) {
+      chatManager.switchConversation(convId);
+      currentConvId = convId;
+      currentConvManager = chatManager.conversations[convId];
+      refreshChatArea();
+      updateConvBar();
+      convDropdown.style.display = 'none';
+    };
+
+    window.deleteConversation = function(convId) {
+      chatManager.deleteConversation(convId);
+      currentConvId = null;
+      getConv();
+      refreshChatArea();
+      updateConvBar();
+    };
+
+    window.createNewConv = function(title, cardId) {
+      const newId = chatManager.createConversation(title || '新对话', cardId || null);
+      currentConvId = newId;
+      currentConvManager = chatManager.conversations[newId];
+      refreshChatArea();
+      updateConvBar();
+    };
+
+    function addMessageToDOM(role, content, msgId, options = {}) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'message-wrapper';
+      wrapper.dataset.msgId = msgId;
+
+      const div = document.createElement('div');
+      div.className = `message ${role}`;
+      div.id = msgId;
+      if (options.recalled) div.classList.add('recalled');
+
+      let name = role === 'user' ? currentUserName : (getActiveCharacterSettings().name || 'AI');
+
+      div.innerHTML = `
+        <span class="sender-name">${name}</span>
+        <div class="bubble">${escapeHtml(content)}${options.isStreaming ? '<span class="streaming-indicator"></span>' : ''}</div>
+      `;
+
+      const actions = document.createElement('div');
+      actions.style.cssText = 'display:flex;gap:4px;margin-top:4px;opacity:0.6;';
+
+      if (role === 'assistant' && !options.isStreaming && !options.recalled) {
+        actions.innerHTML = `
+          <span class="msg-action-btn" onclick="regenerateMessage('${msgId}')">🔄 重新生成</span>
+          <span class="msg-action-btn" onclick="recallMessage('${msgId}')">⏪ 撤回</span>
+        `;
+      } else if (role === 'user' && !options.recalled) {
+        actions.innerHTML = `<span class="msg-action-btn" onclick="recallMessage('${msgId}')">⏪ 撤回</span>`;
+      }
+
+      const pager = document.createElement('div');
+      pager.id = 'pager-' + msgId;
+      pager.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:4px;font-size:11px;color:#8e8e93;';
+
+      wrapper.appendChild(div);
+      wrapper.appendChild(actions);
+      wrapper.appendChild(pager);
+      chatArea.appendChild(wrapper);
+      scrollToBottom();
+
+      if (role === 'assistant') {
+        setTimeout(() => updateVersionPager(msgId), 100);
+      }
+
+      return { wrapper, div, msgId };
+    }
+
+    function addMessage(role, content, options = {}) {
+      const msgId = options.id || 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+      const conv = getConv();
+
+      if (!conv.manager.findNode(msgId)) {
+        conv.manager.addMessage(role, content, { id: msgId, isStreaming: options.isStreaming });
+      }
+
+      return addMessageToDOM(role, content, msgId, options);
+    }
+
+    function escapeHtml(t) {
+      const d = document.createElement('div');
+      d.textContent = t;
+      return d.innerHTML.replace(/\n/g, '<br>');
+    }
+
+    function scrollToBottom() {
+      requestAnimationFrame(() => { chatArea.scrollTop = chatArea.scrollHeight; });
+    }
+
+    function buildSystemPrompt() {
+      const settings = getActiveCharacterSettings();
+      let systemPrompt = '';
+      if (longModeSettings.enabled) {
+        systemPrompt = `【角色扮演】\n角色：「${settings.name}」\n`;
+        if (settings.background) systemPrompt += `背景：${settings.background}\n`;
+        if (settings.personality) systemPrompt += `性格：${settings.personality}\n`;
+        const viewMap = { 'third-person': '第三人称', 'first-person': '第一人称', 'second-person': '第二人称', 'omniscient': '全知视角' };
+        systemPrompt += `使用${viewMap[longModeSettings.narrativeView] || '第三人称'}叙述。\n回复至少${longModeSettings.minWords}字。\n`;
+        const elements = [];
+        if (longModeSettings.elements.action) elements.push('动作描写');
+        if (longModeSettings.elements.expression) elements.push('神态描写');
+        if (longModeSettings.elements.psychology) elements.push('心理活动');
+        if (longModeSettings.elements.environment) elements.push('环境氛围');
+        if (longModeSettings.elements.dialogue) elements.push('对话展开');
+        if (longModeSettings.elements.sensory) elements.push('感官细节');
+        if (elements.length) systemPrompt += `包含：${elements.join('、')}。\n`;
+        if (longModeSettings.customInstructions) systemPrompt += `${longModeSettings.customInstructions}\n`;
+        systemPrompt += `语气：${settings.tone || '友好'}。\n`;
+      } else {
+        if (settings.background) systemPrompt += `【背景】${settings.background}\n`;
+        if (settings.personality) systemPrompt += `【性格】${settings.personality}\n`;
+        systemPrompt += `【风格】${settings.tone || '友好'}\n`;
+      }
+      if (!systemPrompt.trim()) systemPrompt = '你是友好助手。';
+      return [{ role: 'system', content: systemPrompt }];
+    }
+
+    async function handleSend() {
+      if (isGenerating) return;
+      const text = userInput.value.trim();
+      if (!text) return;
+      const apiKey = getApiKey();
+      if (!apiKey) {
+        addMessage('assistant', '⚠️ 请先设置API密钥');
+        userInput.value = '';
+        return;
+      }
+
+      addMessage('user', text);
+      userInput.value = '';
+
+      const conv = getConv();
+      const messages = buildSystemPrompt();
+      messages.push(...conv.manager.getRecentMessages(8));
+      messages.push({ role: 'user', content: text });
+
+      isGenerating = true;
+      sendBtn.style.opacity = '0.5';
+
+      const aiMsg = addMessage('assistant', '', { isStreaming: true });
+
+      const streamHandler = new StreamHandler();
+      streamHandler.onUpdate((delta, fullContent) => {
+        const msgDiv = document.getElementById(aiMsg.msgId);
+        if (msgDiv) {
+          const bubble = msgDiv.querySelector('.bubble');
+          if (bubble) bubble.innerHTML = escapeHtml(fullContent) + '<span class="streaming-indicator"></span>';
+        }
+      });
+
+      try {
+        const options = { maxTokens: longModeSettings.enabled ? 2000 : 800 };
+        if (aiParams.useCustom) { options.temperature = aiParams.temperature; options.topP = aiParams.topP; }
+
+        const result = await streamHandler.streamChat(apiKey, messages, options);
+
+        const msgDiv = document.getElementById(aiMsg.msgId);
+        if (msgDiv) {
+          const bubble = msgDiv.querySelector('.bubble');
+          if (bubble) bubble.innerHTML = escapeHtml(result.content);
+        }
+        conv.manager.updateMessage(aiMsg.msgId, result.content);
+        updateVersionPager(aiMsg.msgId);
+        updateConvBar();
+      } catch (error) {
+        const msgDiv = document.getElementById(aiMsg.msgId);
+        if (msgDiv) {
+          const bubble = msgDiv.querySelector('.bubble');
+          if (bubble) bubble.innerHTML = escapeHtml('❌ ' + error.message);
+        }
+        conv.manager.updateMessage(aiMsg.msgId, '❌ ' + error.message);
+      } finally {
+        isGenerating = false;
+        sendBtn.style.opacity = '1';
+        streamHandler.cancel();
+      }
+    }
+
+    window.recallMessage = function(msgId) {
+      const conv = getConv();
+      const result = conv.manager.recallMessage(msgId);
+      if (!result) return;
+      result.recalledIds.forEach(id => {
+        const wrapper = document.querySelector(`[data-msg-id="${id}"]`);
+        if (wrapper) wrapper.remove();
+      });
+      updateConvBar();
+    };
+
+    window.regenerateMessage = async function(msgId) {
+      if (isGenerating) return;
+      const apiKey = getApiKey();
+      if (!apiKey) return;
+
+      const conv = getConv();
+      const regenResult = conv.manager.startRegenerate(msgId);
+      if (!regenResult) return;
+
+      const node = conv.manager.findNode(msgId);
+      if (node) {
+        const descendants = conv.manager.getDescendants(msgId);
+        descendants.forEach(id => {
+          const wrapper = document.querySelector(`[data-msg-id="${id}"]`);
+          if (wrapper) wrapper.remove();
+        });
+      }
+
+      const msgDiv = document.getElementById(msgId);
+      if (msgDiv) {
+        msgDiv.classList.add('regenerating');
+        const bubble = msgDiv.querySelector('.bubble');
+        if (bubble) bubble.innerHTML = '<span class="streaming-indicator"></span>';
+      }
+
+      isGenerating = true;
+
+      const contextChain = conv.manager.getConversationChain();
+      const contextMessages = contextChain.filter(m => m.id !== msgId);
+
+      const messages = buildSystemPrompt();
+      messages.push(...contextMessages.map(m => ({ role: m.role, content: m.content })));
+
+      const streamHandler = new StreamHandler();
+      streamHandler.onUpdate((delta, fullContent) => {
+        if (msgDiv) {
+          const bubble = msgDiv.querySelector('.bubble');
+          if (bubble) bubble.innerHTML = escapeHtml(fullContent) + '<span class="streaming-indicator"></span>';
+        }
+        conv.manager.updateMessage(msgId, fullContent);
+      });
+
+      try {
+        const options = { maxTokens: longModeSettings.enabled ? 2000 : 800 };
+        if (aiParams.useCustom) { options.temperature = aiParams.temperature; options.topP = aiParams.topP; }
+
+        const result = await streamHandler.streamChat(apiKey, messages, options);
+
+        if (msgDiv) {
+          const bubble = msgDiv.querySelector('.bubble');
+          if (bubble) bubble.innerHTML = escapeHtml(result.content);
+          msgDiv.classList.remove('regenerating');
+        }
+        conv.manager.updateMessage(msgId, result.content);
+        await regenerateFollowingMessages(msgId, apiKey);
+        updateVersionPager(msgId);
+        updateConvBar();
+      } catch (error) {
+        if (msgDiv) {
+          const bubble = msgDiv.querySelector('.bubble');
+          if (bubble) bubble.innerHTML = escapeHtml('❌ ' + error.message);
+        }
+      } finally {
+        isGenerating = false;
+        streamHandler.cancel();
+      }
+    };
+
+    async function regenerateFollowingMessages(startMsgId, apiKey) {
+      const conv = getConv();
+      const chain = conv.manager.getConversationChain();
+      const startIndex = chain.findIndex(m => m.id === startMsgId);
+      if (startIndex === -1) return;
+
+      const followingMessages = chain.slice(startIndex + 1);
+
+      for (const msg of followingMessages) {
+        if (msg.role === 'user') {
+          addMessageToDOM('user', msg.content, msg.id);
+          continue;
+        }
+
+        const currentChain = conv.manager.getConversationChain();
+        const msgIndex = currentChain.findIndex(m => m.id === msg.id);
+        const contextMessages = currentChain.slice(0, msgIndex);
+
+        const messages = buildSystemPrompt();
+        messages.push(...contextMessages.map(m => ({ role: m.role, content: m.content })));
+
+        const aiMsg = addMessage('assistant', '', { isStreaming: true });
+
+        const streamHandler = new StreamHandler();
+        streamHandler.onUpdate((delta, fullContent) => {
+          const div = document.getElementById(aiMsg.msgId);
+          if (div) {
+            const bubble = div.querySelector('.bubble');
+            if (bubble) bubble.innerHTML = escapeHtml(fullContent) + '<span class="streaming-indicator"></span>';
+          }
+        });
+
+        try {
+          const options = { maxTokens: longModeSettings.enabled ? 2000 : 800 };
+          if (aiParams.useCustom) { options.temperature = aiParams.temperature; options.topP = aiParams.topP; }
+          const result = await streamHandler.streamChat(apiKey, messages, options);
+          const div = document.getElementById(aiMsg.msgId);
+          if (div) {
+            const bubble = div.querySelector('.bubble');
+            if (bubble) bubble.innerHTML = escapeHtml(result.content);
+          }
+          conv.manager.updateMessage(aiMsg.msgId, result.content);
+        } catch (error) {
+          break;
+        }
+      }
+    }
+
+    function updateVersionPager(msgId) {
+      const pager = document.getElementById('pager-' + msgId);
+      if (!pager) return;
+      const conv = getConv();
+      const info = conv.manager.getVersionInfo(msgId);
+      pager.innerHTML = `
+        <button class="version-pager-btn" onclick="prevVersion('${msgId}')" ${!info.hasPrev ? 'disabled' : ''}>◀</button>
+        <span class="version-info">${info.current}/${info.total}</span>
+        <button class="version-pager-btn" onclick="nextVersion('${msgId}')" ${!info.hasNext ? 'disabled' : ''}>▶</button>
+      `;
+    }
+
+    window.prevVersion = function(msgId) {
+      const conv = getConv();
+      const node = conv.manager.findNode(msgId);
+      if (!node) return;
+      const newIndex = node.currentVersion - 1;
+      if (newIndex < 0) return;
+
+      const descendants = conv.manager.getDescendants(msgId);
+      descendants.forEach(id => {
+        const wrapper = document.querySelector(`[data-msg-id="${id}"]`);
+        if (wrapper) wrapper.remove();
+      });
+
+      const result = conv.manager.switchVersion(msgId, newIndex);
+      if (result) {
+        const msgDiv = document.getElementById(msgId);
+        if (msgDiv) {
+          const bubble = msgDiv.querySelector('.bubble');
+          if (bubble) bubble.innerHTML = escapeHtml(result.content);
+        }
+        updateVersionPager(msgId);
+      }
+    };
+
+    window.nextVersion = function(msgId) {
+      const conv = getConv();
+      const node = conv.manager.findNode(msgId);
+      if (!node) return;
+      const newIndex = node.currentVersion + 1;
+      if (newIndex >= node.versions.length) return;
+
+      const descendants = conv.manager.getDescendants(msgId);
+      descendants.forEach(id => {
+        const wrapper = document.querySelector(`[data-msg-id="${id}"]`);
+        if (wrapper) wrapper.remove();
+      });
+
+      const result = conv.manager.switchVersion(msgId, newIndex);
+      if (result) {
+        const msgDiv = document.getElementById(msgId);
+        if (msgDiv) {
+          const bubble = msgDiv.querySelector('.bubble');
+          if (bubble) bubble.innerHTML = escapeHtml(result.content);
+        }
+        updateVersionPager(msgId);
+      }
+    };
+
+    function openPanel(wrapper) { wrapper.classList.add('open'); notifyAllIframes(); }
+    function closePanel(wrapper) { wrapper.classList.remove('open'); }
+    function openActionSheet() { actionSheetOverlay.classList.add('active'); document.body.style.overflow = 'hidden'; }
+    function closeActionSheet() { actionSheetOverlay.classList.remove('active'); document.body.style.overflow = ''; }
+
+    sendBtn.addEventListener('click', handleSend);
+    userInput.addEventListener('keypress', e => { if (e.key === 'Enter') handleSend(); });
+    document.getElementById('menuButton').addEventListener('click', openActionSheet);
+    document.getElementById('menuForum').addEventListener('click', () => { closeActionSheet(); setTimeout(() => openPanel(forumWrapper), 300); });
+    document.getElementById('menuSettings').addEventListener('click', () => { closeActionSheet(); setTimeout(() => openPanel(settingsWrapper), 300); });
+    document.getElementById('menuParams').addEventListener('click', () => { closeActionSheet(); setTimeout(() => openPanel(paramsWrapper), 300); });
+    document.getElementById('menuLongMode').addEventListener('click', () => { closeActionSheet(); setTimeout(() => openPanel(longModeWrapper), 300); });
+    document.getElementById('menuCancel').addEventListener('click', closeActionSheet);
+    actionSheetOverlay.addEventListener('click', e => { if (e.target === actionSheetOverlay) closeActionSheet(); });
+    document.getElementById('forumClose').addEventListener('click', () => closePanel(forumWrapper));
+    document.getElementById('settingsClose').addEventListener('click', () => closePanel(settingsWrapper));
+    document.getElementById('paramsClose').addEventListener('click', () => closePanel(paramsWrapper));
+    document.getElementById('longModeClose').addEventListener('click', () => closePanel(longModeWrapper));
+    document.getElementById('characterCardClose').addEventListener('click', () => closePanel(characterCardWrapper));
+    window.addEventListener('resize', scrollToBottom);
+
+    convSwitcherBtn.addEventListener('click', () => {
+      updateConvBar();
+      convDropdown.style.display = convDropdown.style.display === 'none' ? 'block' : 'none';
+    });
+    document.getElementById('convNewBtn').addEventListener('click', () => { createNewConv(); convDropdown.style.display = 'none'; });
+    document.getElementById('convCharCardBtn').addEventListener('click', () => { convDropdown.style.display = 'none'; openPanel(characterCardWrapper); });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#convBar')) { convDropdown.style.display = 'none'; }
+    });
+
+    window.addEventListener('message', (e) => {
+      if (!e.data || !e.data.type) return;
+      if (e.data.type === 'saveSettings') {
+        aiSettings = e.data.settings || aiSettings;
+        currentUserName = e.data.userName || currentUserName;
+        localStorage.setItem('ai_settings_v2', JSON.stringify(aiSettings));
+        localStorage.setItem('user_name_v4', currentUserName);
+        if (e.data.apiKey) setApiKey(e.data.apiKey);
+        closePanel(settingsWrapper);
+      } else if (e.data.type === 'saveParams') {
+        aiParams = e.data.params || aiParams;
+        localStorage.setItem('ai_params_v2', JSON.stringify(aiParams));
+        closePanel(paramsWrapper);
+      } else if (e.data.type === 'saveLongMode') {
+        longModeSettings = e.data.longMode || longModeSettings;
+        localStorage.setItem('long_mode_settings', JSON.stringify(longModeSettings));
+        closePanel(longModeWrapper);
+      } else if (e.data.type === 'requestSync') {
+        notifyAllIframes();
+      } else if (e.data.type === 'createCharacterCard') {
+        chatManager.createCharacterCard(e.data.card);
+        chatManager.saveToStorage();
+        notifyAllIframes();
+      } else if (e.data.type === 'updateCharacterCard') {
+        chatManager.updateCharacterCard(e.data.card.id, e.data.card);
+        chatManager.saveToStorage();
+        notifyAllIframes();
+      } else if (e.data.type === 'deleteCharacterCard') {
+        chatManager.deleteCharacterCard(e.data.cardId);
+        chatManager.saveToStorage();
+        notifyAllIframes();
+      } else if (e.data.type === 'applyCharacterCard') {
+        const conv = getConv();
+        chatManager.bindCharacterCard(conv.id, e.data.cardId);
+        chatManager.saveToStorage();
+        refreshChatArea();
+        updateConvBar();
+        closePanel(characterCardWrapper);
+      }
+    });
+
+    loadSettings();
+  })();
+</script>
+</body>
+</html>
