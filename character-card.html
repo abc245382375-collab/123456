@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>角色卡管理</title>
+  <link rel="stylesheet" href="character-card.css">
+</head>
+<body>
+<div class="cc-container">
+  <h2>🎭 角色卡管理</h2>
+
+  <div class="cc-list" id="cardList"></div>
+
+  <button class="cc-add-btn" onclick="showEditor()">＋ 创建新角色卡</button>
+
+  <!-- 编辑弹窗 -->
+  <div class="cc-overlay" id="editorOverlay" style="display:none;">
+    <div class="cc-editor">
+      <h3 id="editorTitle">创建角色卡</h3>
+      <input type="hidden" id="editCardId">
+      
+      <div class="cc-field">
+        <label>头像表情</label>
+        <input type="text" id="editAvatar" placeholder="🤖" maxlength="2">
+      </div>
+      <div class="cc-field">
+        <label>角色名称</label>
+        <input type="text" id="editName" placeholder="例如：夜澜">
+      </div>
+      <div class="cc-field">
+        <label>角色背景</label>
+        <textarea id="editBackground" rows="3" placeholder="角色背景故事..."></textarea>
+      </div>
+      <div class="cc-field">
+        <label>性格特点</label>
+        <textarea id="editPersonality" rows="2" placeholder="温柔、神秘、偶尔流露千年孤独感..."></textarea>
+      </div>
+      <div class="cc-field">
+        <label>说话语气</label>
+        <input type="text" id="editTone" placeholder="诗意而深沉">
+      </div>
+      <div class="cc-field">
+        <label>开场白</label>
+        <textarea id="editOpening" rows="2" placeholder="初次见面的开场白..."></textarea>
+      </div>
+
+      <div class="cc-editor-btns">
+        <button class="cc-cancel-btn" onclick="hideEditor()">取消</button>
+        <button class="cc-save-btn" onclick="saveCard()">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let cards = [];
+
+  window.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'syncFromParent' && e.data.characterCards) {
+      cards = e.data.characterCards || [];
+      renderCards();
+    }
+  });
+
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ type: 'requestSync' }, '*');
+  }
+
+  function renderCards() {
+    const list = document.getElementById('cardList');
+    if (cards.length === 0) {
+      list.innerHTML = '<div style="text-align:center;padding:30px;color:#8e8e93;">暂无角色卡</div>';
+      return;
+    }
+    list.innerHTML = cards.map(card => `
+      <div class="cc-card" onclick="applyCard('${card.id}')">
+        <div class="cc-card-avatar">${card.avatar || '🤖'}</div>
+        <div class="cc-card-info">
+          <div class="cc-card-name">${card.name}</div>
+          <div class="cc-card-desc">${card.tone} · ${card.personality?.substring(0,30) || '未设定'}...</div>
+        </div>
+        <button class="cc-card-edit" onclick="event.stopPropagation();editCard('${card.id}')">✏️</button>
+        <button class="cc-card-del" onclick="event.stopPropagation();deleteCard('${card.id}')">🗑</button>
+      </div>
+    `).join('');
+  }
+
+  function applyCard(cardId) {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'applyCharacterCard', cardId }, '*');
+    }
+  }
+
+  function editCard(cardId) {
+    const card = cards.find(c => c.id === cardId);
+    if (!card) return;
+    document.getElementById('editorTitle').textContent = '编辑角色卡';
+    document.getElementById('editCardId').value = cardId;
+    document.getElementById('editAvatar').value = card.avatar || '';
+    document.getElementById('editName').value = card.name || '';
+    document.getElementById('editBackground').value = card.background || '';
+    document.getElementById('editPersonality').value = card.personality || '';
+    document.getElementById('editTone').value = card.tone || '';
+    document.getElementById('editOpening').value = card.opening || '';
+    document.getElementById('editorOverlay').style.display = 'flex';
+  }
+
+  function showEditor() {
+    document.getElementById('editorTitle').textContent = '创建角色卡';
+    document.getElementById('editCardId').value = '';
+    document.getElementById('editAvatar').value = '';
+    document.getElementById('editName').value = '';
+    document.getElementById('editBackground').value = '';
+    document.getElementById('editPersonality').value = '';
+    document.getElementById('editTone').value = '';
+    document.getElementById('editOpening').value = '';
+    document.getElementById('editorOverlay').style.display = 'flex';
+  }
+
+  function hideEditor() {
+    document.getElementById('editorOverlay').style.display = 'none';
+  }
+
+  function saveCard() {
+    const cardId = document.getElementById('editCardId').value;
+    const card = {
+      id: cardId || undefined,
+      avatar: document.getElementById('editAvatar').value || '🤖',
+      name: document.getElementById('editName').value.trim(),
+      background: document.getElementById('editBackground').value.trim(),
+      personality: document.getElementById('editPersonality').value.trim(),
+      tone: document.getElementById('editTone').value.trim(),
+      opening: document.getElementById('editOpening').value.trim()
+    };
+    if (!card.name) return;
+
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: cardId ? 'updateCharacterCard' : 'createCharacterCard', card }, '*');
+    }
+    hideEditor();
+  }
+
+  function deleteCard(cardId) {
+    if (!confirm('确定删除此角色卡？')) return;
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'deleteCharacterCard', cardId }, '*');
+    }
+  }
+</script>
+</body>
+</html>
