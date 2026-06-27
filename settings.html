@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>AI 对话设置</title>
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+<div class="settings-container">
+  <h2>⚙️ AI 对话设置</h2>
+
+  <div class="form-group">
+    <label>🔑 API 密钥</label>
+    <input type="password" id="apiKey" placeholder="sk-xxxxxxxxxxxxxxxx" style="font-family:monospace;">
+    <div class="hint"><a href="https://platform.deepseek.com/api_keys" target="_blank">获取密钥 →</a> · 保存在本地</div>
+  </div>
+
+  <div class="form-group">
+    <label>🤖 AI 姓名</label>
+    <input type="text" id="aiName" placeholder="例如：灵境、小灵、DeepSeek">
+  </div>
+
+  <div class="form-group">
+    <label>📖 人物背景</label>
+    <textarea id="aiBackground" rows="3" placeholder="例如：你是一位来自未来的AI助手，穿越时空来帮助人类..."></textarea>
+  </div>
+
+  <div class="form-group">
+    <label>🎭 人物性格</label>
+    <textarea id="aiPersonality" rows="3" placeholder="例如：温柔、耐心、偶尔带点幽默感，喜欢用比喻解释复杂概念..."></textarea>
+  </div>
+
+  <div class="form-group">
+    <label>💬 说话语气（自定义）</label>
+    <input type="text" id="aiTone" placeholder="例如：幽默风趣、严肃专业、温柔可爱、古风诗意、赛博朋克...">
+  </div>
+
+  <div class="form-group">
+    <label>👋 开场白</label>
+    <textarea id="aiOpening" rows="3" placeholder="例如：你好呀！我是灵境，来自2049年的AI助手，今天有什么可以帮你的？"></textarea>
+  </div>
+
+  <div class="form-group">
+    <label>👤 你的昵称</label>
+    <input type="text" id="userName" placeholder="你的名字">
+  </div>
+
+  <button class="save-btn" onclick="saveAndClose()">💾 保存设置</button>
+  <div class="status" id="statusText"></div>
+</div>
+
+<script>
+  let parentData = {};
+
+  // 从主页面接收数据
+  window.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'syncFromParent') {
+      parentData = e.data;
+      if (e.data.settings) {
+        document.getElementById('aiName').value = e.data.settings.name || '';
+        document.getElementById('aiBackground').value = e.data.settings.background || '';
+        document.getElementById('aiPersonality').value = e.data.settings.personality || '';
+        document.getElementById('aiTone').value = e.data.settings.tone || '';
+        document.getElementById('aiOpening').value = e.data.settings.opening || '';
+      }
+      document.getElementById('userName').value = e.data.userName || '';
+      document.getElementById('apiKey').value = e.data.apiKey || '';
+    }
+  });
+
+  // 请求同步
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ type: 'requestSync' }, '*');
+  }
+
+  function saveAndClose() {
+    const settings = {
+      name: document.getElementById('aiName').value.trim() || '灵境AI',
+      background: document.getElementById('aiBackground').value.trim(),
+      personality: document.getElementById('aiPersonality').value.trim(),
+      tone: document.getElementById('aiTone').value.trim() || '幽默风趣',
+      opening: document.getElementById('aiOpening').value.trim()
+    };
+    const userName = document.getElementById('userName').value.trim() || '探索者';
+    const apiKey = document.getElementById('apiKey').value.trim();
+
+    // 保存到localStorage
+    localStorage.setItem('ai_settings_v2', JSON.stringify(settings));
+    localStorage.setItem('user_name_v4', userName);
+    if (apiKey) localStorage.setItem('deepseek_api_key', apiKey);
+
+    // 通知主页面
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'saveSettings', settings, userName, apiKey }, '*');
+    }
+
+    const status = document.getElementById('statusText');
+    status.textContent = '✅ 已保存';
+    status.style.color = '#34c759';
+    setTimeout(() => { status.textContent = ''; }, 1500);
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>AI 参数调节</title>
+  <link rel="stylesheet" href="params.css">
+</head>
+<body>
+<div class="params-container">
+  <h2>🎛️ AI 参数调节</h2>
+
+  <div class="presets-section">
+    <div class="presets-title">📦 快速预设</div>
+    <div class="presets-row">
+      <span class="preset-chip" onclick="applyPreset('creative')">🎨 创意</span>
+      <span class="preset-chip" onclick="applyPreset('balanced')">⚖️ 平衡</span>
+      <span class="preset-chip" onclick="applyPreset('precise')">🎯 精准</span>
+      <span class="preset-chip" onclick="applyPreset('random')">🎲 随机</span>
+    </div>
+  </div>
+
+  <div class="param-card">
+    <div class="param-header">
+      <span class="param-label">🌡️ 温度 (Temperature)</span>
+      <span class="param-value" id="tempValue">1.0</span>
+    </div>
+    <div class="param-desc">控制回复的随机性。0=确定，2=高度随机。默认1.0</div>
+    <input type="range" class="param-slider" id="tempSlider" min="0" max="2" step="0.1" value="1.0" oninput="updateSlider('temp')">
+    <div class="slider-ticks">
+      <span onclick="setSlider('temp',0)">0</span><span onclick="setSlider('temp',0.5)">0.5</span>
+      <span onclick="setSlider('temp',1.0)">1.0</span><span onclick="setSlider('temp',1.5)">1.5</span>
+      <span onclick="setSlider('temp',2.0)">2.0</span>
+    </div>
+  </div>
+
+  <div class="param-card">
+    <div class="param-header">
+      <span class="param-label">🎯 Top P (核采样)</span>
+      <span class="param-value" id="topPValue">0.90</span>
+    </div>
+    <div class="param-desc">控制回复多样性。0.1=保守，1.0=最大。默认0.9</div>
+    <input type="range" class="param-slider" id="topPSlider" min="0" max="1" step="0.05" value="0.9" oninput="updateSlider('topP')">
+    <div class="slider-ticks">
+      <span onclick="setSlider('topP',0)">0</span><span onclick="setSlider('topP',0.25)">0.25</span>
+      <span onclick="setSlider('topP',0.5)">0.5</span><span onclick="setSlider('topP',0.75)">0.75</span>
+      <span onclick="setSlider('topP',1.0)">1.0</span>
+    </div>
+  </div>
+
+  <div class="param-card">
+    <div class="param-header">
+      <span class="param-label">📐 上下文 Token 数</span>
+      <span class="param-value" id="tokenValue">不限制</span>
+    </div>
+    <div class="param-desc">限制对话历史长度。留空或0=不限制。</div>
+    <input type="number" class="token-input" id="tokenInput" placeholder="不限制（留空）" min="0" max="64000" step="100" oninput="updateTokenDisplay()">
+    <div class="token-presets">
+      <span onclick="setToken(0)">不限</span><span onclick="setToken(2000)">2K</span>
+      <span onclick="setToken(4000)">4K</span><span onclick="setToken(8000)">8K</span><span onclick="setToken(16000)">16K</span>
+    </div>
+  </div>
+
+  <div class="param-card">
+    <div class="toggle-row">
+      <div><span class="param-label">🔧 使用自定义参数</span><span class="param-desc">关闭时用默认值</span></div>
+      <label class="toggle-switch"><input type="checkbox" id="useCustom" onchange="toggleCustom()"><span class="toggle-slider"></span></label>
+    </div>
+  </div>
+
+  <div class="status" id="statusText"></div>
+  <button class="save-btn" onclick="saveAndClose()">💾 保存参数</button>
+</div>
+
+<script>
+  let params = { temperature: 1.0, topP: 0.9, maxTokens: null, useCustom: false };
+
+  window.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'syncFromParent' && e.data.params) {
+      params = e.data.params;
+      updateUI();
+    }
+  });
+
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ type: 'requestSync' }, '*');
+  }
+
+  function updateUI() {
+    document.getElementById('tempSlider').value = params.temperature;
+    document.getElementById('topPSlider').value = params.topP;
+    document.getElementById('tokenInput').value = params.maxTokens || '';
+    document.getElementById('useCustom').checked = params.useCustom;
+    updateSlider('temp');
+    updateSlider('topP');
+    updateTokenDisplay();
+    toggleCustomUI();
+  }
+
+  window.updateSlider = function(type) {
+    const slider = document.getElementById(type === 'temp' ? 'tempSlider' : 'topPSlider');
+    const display = document.getElementById(type === 'temp' ? 'tempValue' : 'topPValue');
+    const val = parseFloat(slider.value);
+    if (type === 'temp') { params.temperature = val; display.textContent = val.toFixed(1); }
+    else { params.topP = val; display.textContent = val.toFixed(2); }
+    const pct = ((val - parseFloat(slider.min)) / (parseFloat(slider.max) - parseFloat(slider.min))) * 100;
+    slider.style.setProperty('--slider-percent', pct + '%');
+  };
+
+  window.setSlider = function(type, val) {
+    const slider = document.getElementById(type === 'temp' ? 'tempSlider' : 'topPSlider');
+    slider.value = val;
+    updateSlider(type);
+  };
+
+  window.updateTokenDisplay = function() {
+    const val = document.getElementById('tokenInput').value.trim();
+    const display = document.getElementById('tokenValue');
+    if (!val || val === '0') { params.maxTokens = null; display.textContent = '不限制'; }
+    else { params.maxTokens = parseInt(val); display.textContent = params.maxTokens >= 1000 ? (params.maxTokens/1000).toFixed(1).replace('.0','')+'K' : params.maxTokens; }
+  };
+
+  window.setToken = function(val) {
+    document.getElementById('tokenInput').value = val || '';
+    updateTokenDisplay();
+  };
+
+  window.toggleCustom = function() {
+    params.useCustom = document.getElementById('useCustom').checked;
+    toggleCustomUI();
+  };
+
+  function toggleCustomUI() {
+    const disabled = !params.useCustom;
+    ['tempSlider','topPSlider','tokenInput'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = disabled;
+    });
+  }
+
+  window.applyPreset = function(type) {
+    const presets = {
+      creative: { temperature: 1.5, topP: 0.95, maxTokens: null, useCustom: true },
+      balanced: { temperature: 1.0, topP: 0.9, maxTokens: null, useCustom: true },
+      precise: { temperature: 0.3, topP: 0.5, maxTokens: null, useCustom: true },
+      random: { temperature: 1.8, topP: 1.0, maxTokens: null, useCustom: true }
+    };
+    if (presets[type]) { params = presets[type]; updateUI(); }
+  };
+
+  function saveAndClose() {
+    params.useCustom = document.getElementById('useCustom').checked;
+    localStorage.setItem('ai_params_v2', JSON.stringify(params));
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'saveParams', params }, '*');
+    }
+    document.getElementById('statusText').textContent = '✅ 已保存';
+    setTimeout(() => { document.getElementById('statusText').textContent = ''; }, 1500);
+  }
+</script>
+</body>
+</html>

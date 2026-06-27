@@ -1,0 +1,32 @@
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  background: #f2f2f7;
+  padding: 20px 16px;
+  padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  color: #1c1c1e;
+  -webkit-overflow-scrolling: touch;
+}
+.settings-container { max-width: 400px; margin: 0 auto; }
+h2 { font-size: 22px; font-weight: 700; margin-bottom: 20px; text-align: center; }
+.form-group { margin-bottom: 18px; }
+.form-group label { font-weight: 600; font-size: 14px; display: block; margin-bottom: 6px; color: #1c1c1e; }
+.form-group input, .form-group textarea {
+  width: 100%; border: 1px solid #dcdce0; border-radius: 14px;
+  padding: 12px 14px; font-size: 15px; background: #fff;
+  font-family: inherit; -webkit-appearance: none; outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.form-group input:focus, .form-group textarea:focus {
+  border-color: #007aff; box-shadow: 0 0 0 3px rgba(0,122,255,0.1);
+}
+.form-group textarea { resize: vertical; min-height: 70px; }
+.hint { font-size: 11px; color: #8e8e93; margin-top: 4px; }
+.hint a { color: #007aff; text-decoration: none; }
+.save-btn {
+  width: 100%; background: #007aff; color: #fff; border: none;
+  border-radius: 14px; padding: 14px; font-size: 17px; font-weight: 600;
+  cursor: pointer; margin-top: 8px; transition: 0.15s;
+}
+.save-btn:active { background: #0051d5; transform: scale(0.98); }
+.status { text-align: center; font-size: 13px; margin-top: 10px; min-height: 20px; }
