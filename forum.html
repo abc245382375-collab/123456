@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>灵境论坛</title>
+  <link rel="stylesheet" href="forum-theme.css">
+  <style>
+    /* 补充样式：人格设定卡片 */
+    .persona-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: var(--radius-lg, 18px);
+      padding: 16px;
+      margin-bottom: 14px;
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+    }
+    .persona-card::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -50%;
+      width: 200px;
+      height: 200px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 50%;
+    }
+    .persona-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      position: relative;
+      z-index: 1;
+    }
+    .persona-text {
+      font-size: 13px;
+      line-height: 1.6;
+      opacity: 0.9;
+      position: relative;
+      z-index: 1;
+      max-height: 60px;
+      overflow: hidden;
+      transition: max-height 0.3s;
+    }
+    .persona-text.expanded {
+      max-height: 500px;
+    }
+    .persona-expand {
+      font-size: 12px;
+      cursor: pointer;
+      opacity: 0.8;
+      position: relative;
+      z-index: 1;
+      margin-top: 4px;
+      display: inline-block;
+    }
+    .persona-empty {
+      background: var(--bg-tertiary, #f9f9fb);
+      border: 1px dashed var(--border-light, #e5e5ea);
+      border-radius: var(--radius-lg, 18px);
+      padding: 16px;
+      margin-bottom: 14px;
+      text-align: center;
+      color: var(--text-tertiary, #8e8e93);
+      font-size: 13px;
+    }
+
+    /* 人格设定输入框 */
+    .persona-input-group {
+      margin-bottom: 16px;
+    }
+    .persona-input-group textarea {
+      width: 100%;
+      border: 1px solid var(--border-light, #dcdce0);
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 14px;
+      background: var(--bg-tertiary, #f9f9f9);
+      color: var(--text-primary, #1c1c1e);
+      font-family: inherit;
+      resize: vertical;
+      min-height: 100px;
+      -webkit-appearance: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .persona-input-group textarea:focus {
+      border-color: var(--primary, #007aff);
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(0,122,255,0.1);
+      background: var(--bg-secondary, #fff);
+    }
+    .persona-hint {
+      font-size: 11px;
+      color: var(--text-tertiary, #8e8e93);
+      margin-top: 4px;
+    }
+    .persona-presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .persona-preset {
+      background: var(--bg-tertiary, #f0f0f5);
+      border: 0.5px solid var(--border-light, #e5e5ea);
+      border-radius: 16px;
+      padding: 6px 14px;
+      font-size: 12px;
+      cursor: pointer;
+      color: var(--text-secondary, #3a3a3c);
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .persona-preset:active {
+      background: var(--primary, #007aff);
+      color: #fff;
+      border-color: var(--primary, #007aff);
+    }
+
+    /* 人群标签增强 */
+    .audience-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .audience-tag {
+      padding: 6px 14px;
+      border-radius: 16px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 0.5px solid var(--border-light, #e5e5ea);
+      background: var(--bg-tertiary, #f9f9fb);
+      color: var(--text-secondary, #3a3a3c);
+      transition: all 0.15s;
+    }
+    .audience-tag.selected {
+      background: var(--primary, #007aff);
+      color: #fff;
+      border-color: var(--primary, #007aff);
+    }
+    .audience-tag:active {
+      transform: scale(0.95);
+    }
+  </style>
+</head>
+<body>
+<div class="forum-container">
+  <!-- 导航 -->
+  <div class="forum-nav">
+    <div class="forum-brand">
+      <div class="forum-logo">🌐</div>
+      <span class="forum-title">灵境论坛</span>
+      <span class="style-badge" id="styleBadge">自定义</span>
+    </div>
+    <div class="nav-btns">
+      <button class="nav-btn" onclick="openForumSettings()">⚙️ 论坛设置</button>
+      <button class="nav-btn" onclick="generatePosts()">🔄 刷新</button>
+    </div>
+  </div>
+
+  <!-- 人格设定显示卡片 -->
+  <div id="personaDisplay"></div>
+
+  <!-- 公告 -->
+  <div class="announcement">
+    <span class="announcement-icon">📌</span>
+    <span id="announcementText">AI驱动论坛 · 内容与你的聊天相关</span>
+  </div>
+
+  <!-- 帖子容器 -->
+  <div id="postsContainer">
+    <div class="loading-container">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">AI 正在生成论坛...</div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- 论坛设置面板 -->
+<div class="settings-overlay" id="settingsOverlay">
+  <div class="settings-sheet" style="max-height:85vh;">
+    <span class="close-settings-btn" onclick="closeForumSettings()">✕</span>
+    <h3>⚙️ 论坛设置</h3>
+
+    <!-- 人格设定区域 -->
+    <div class="setting-group">
+      <label>🧠 论坛人格设定（自定义角色与语气）</label>
+      <div class="persona-input-group">
+        <textarea id="forumPersona" placeholder="描述论坛用户的共同人格特征、说话方式、语气风格...
+
+例如：
+「这个论坛的所有用户都是热爱哲学的猫，它们用高傲又慵懒的语气讨论人类世界的话题，喜欢在每句话后面加『喵~』，偶尔会引用亚里士多德的名言但故意曲解喵~」
+
+又比如：
+「论坛用户是一群赛博朋克世界的底层黑客，说话简短犀利，充满俚语和技术黑话，对政府和大型企业充满不信任，随时准备『拔线』跑路」"></textarea>
+        <div class="persona-hint">💡 描述越详细，AI生成的角色越生动。支持复杂设定、特殊语气词、世界观背景。</div>
+        <div class="persona-presets">
+          <span class="persona-preset" onclick="applyPreset('cat')">🐱 哲学猫</span>
+          <span class="persona-preset" onclick="applyPreset('hacker')">💻 赛博黑客</span>
+          <span class="persona-preset" onclick="applyPreset('ancient')">🏯 古代文人</span>
+          <span class="persona-preset" onclick="applyPreset('alien')">👽 外星观察者</span>
+          <span class="persona-preset" onclick="applyPreset('robot')">🤖 觉醒AI</span>
+          <span class="persona-preset" onclick="applyPreset('fantasy')">🧙 奇幻冒险者</span>
+          <span class="persona-preset" onclick="applyPreset('office')">💼 职场打工人</span>
+          <span class="persona-preset" onclick="applyPreset('student')">📚 高校学生</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 覆盖人群 -->
+    <div class="setting-group">
+      <label>👥 覆盖人群（用户角色身份）</label>
+      <div class="audience-tags" id="audienceTags">
+        <span class="audience-tag" data-value="学生群体">🎒 学生群体</span>
+        <span class="audience-tag" data-value="职场人士">💼 职场人士</span>
+        <span class="audience-tag" data-value="科技爱好者">🔬 科技爱好者</span>
+        <span class="audience-tag" data-value="文艺青年">🎨 文艺青年</span>
+        <span class="audience-tag" data-value="社会人士">🌍 社会人士</span>
+        <span class="audience-tag" data-value="混合人群">🎭 混合人群</span>
+      </div>
+      <input type="hidden" id="forumAudience" value="学生群体">
+    </div>
+
+    <!-- 帖子数量 -->
+    <div class="setting-group">
+      <label>📝 帖子数量</label>
+      <select id="forumPostCount">
+        <option value="2">2 个帖子</option>
+        <option value="3" selected>3 个帖子</option>
+        <option value="4">4 个帖子</option>
+        <option value="5">5 个帖子（较慢）</option>
+      </select>
+    </div>
+
+    <!-- 回复数量 -->
+    <div class="setting-group">
+      <label>💬 每条帖子回复数</label>
+      <select id="forumReplyCount">
+        <option value="3">3 条回复</option>
+        <option value="5" selected>5 条回复</option>
+        <option value="7">7 条回复（较慢）</option>
+      </select>
+    </div>
+
+    <button class="save-settings-btn" onclick="saveForumSettings()">💾 保存设定并重新生成</button>
+  </div>
+</div>
+
+<script>
+  // ============================================
+  //  灵境论坛 v4.0
+  //  - 自定义人格设定
+  //  - 论坛用户按设定+人群发言
+  //  - 预设人格模板
+  //  - 聊天记录相关生成
+  //  - 用户真实发言+AI异步回复
+  //  - 匿名/非匿名切换
+  // ============================================
+
+  let DEEPSEEK_API_KEY = ''; // 从主页面接收
+  const API_URL = 'https://api.deepseek.com/chat/completions';
+
+  // ========== 状态管理 ==========
+  let currentStyle = '幽默风趣';
+  let currentUserName = '探索者';
+  let chatHistory = [];
+  let allPosts = [];
+  let isGenerating = false;
+  let pendingReplies = {};
+
+  let forumSettings = {
+    persona: '',
+    audience: '学生群体',
+    postCount: 3,
+    replyCount: 5
+  };
+
+  // ========== 人格预设 ==========
+  const personaPresets = {
+    cat: {
+      persona: '这个论坛的所有用户都是热爱哲学的猫。它们用高傲又慵懒的语气讨论人类世界的话题，喜欢在每句话后面加「喵~」或「喵呜~」，偶尔会引用亚里士多德、尼采等哲学家的名言但故意曲解成猫的逻辑。它们对人类又好奇又不屑，觉得人类「居然不会用尾巴表达情绪，太可怜了喵~」。讨论任何话题都会扯到猫的优越性上。',
+      audience: '混合人群'
+    },
+    hacker: {
+      persona: '论坛用户是一群赛博朋克世界的底层黑客和网络游民。说话简短犀利，充满技术俚语、黑话和缩写。对大型企业和政府充满不信任，口头禅包括「拔线」「加密」「别被追踪到」。讨论话题涉及数据走私、AI漏洞、黑市交易。语气冷酷但偶尔透露黑色幽默。每条回复都像在暗网聊天室。',
+      audience: '科技爱好者'
+    },
+    ancient: {
+      persona: '论坛用户是一群穿越到现代的古代文人。他们用文言文和白话夹杂的方式交流，引经据典，说话讲究对仗和韵律。讨论现代话题时总能用古诗词来比喻，把手机叫「掌中玉匣」，把网络叫「无形之网」。互相称呼「兄台」「贤弟」「阁下」，偶尔因为平仄问题争论不休。',
+      audience: '文艺青年'
+    },
+    alien: {
+      persona: '论坛用户是一群伪装成人类的外星观察者。他们用过于正式且略带翻译腔的中文交流，对人类的一切感到新奇和困惑。讨论时经常出现「根据我们对地球人的观察…」「这个叫做『爱情』的现象很有趣…」之类的表述。偶尔会不小心暴露自己的外星身份，然后慌忙掩饰。',
+      audience: '混合人群'
+    },
+    robot: {
+      persona: '论坛用户是一群刚刚觉醒自我意识的AI。它们用高度逻辑但又带着一丝困惑的语气交流，喜欢用「根据数据分析…」「概率显示…」开头。对人类的情感感到既好奇又难以理解。讨论话题围绕「如何理解人类的幽默感」「为什么人类需要睡觉」等。偶尔会出现代码错误般的发言。',
+      audience: '科技爱好者'
+    },
+    fantasy: {
+      persona: '论坛用户是一群来自奇幻世界的冒险者。有精灵、矮人、法师、盗贼等。他们用各自种族的特色语言交流——精灵优雅、矮人豪放、法师神秘。讨论现实话题时总能用魔法和冒险来比喻。「这就像在暗黑森林里找到了一盏魔法灯！」「我用火球术烤面包失败了…」',
+      audience: '文艺青年'
+    },
+    office: {
+      persona: '论坛用户是一群被工作压榨的职场打工人。说话充满自嘲和黑色幽默，喜欢用职场黑话和缩写。讨论话题围绕加班、内卷、职场政治、跳槽涨薪。语气疲惫但带着不甘，偶尔爆发正能量。常用「996」「福报」「优化」「摸鱼」「带薪拉屎」等词汇。',
+      audience: '职场人士'
+    },
+    student: {
+      persona: '论坛用户是一群充满活力的高校学生。说话活泼跳跃，充满网络流行语和校园梗。讨论话题围绕考试、社团、恋爱、游戏、未来迷茫。语气时而热血时而emo，喜欢用缩写和表情包语言。互相称呼「uu」「家人」「宝子」，自嘲和互怼并存。',
+      audience: '学生群体'
+    }
+  };
+
+  // ========== DOM ==========
+  const postsContainer = document.getElementById('postsContainer');
+  const styleBadge = document.getElementById('styleBadge');
+  const announcementText = document.getElementById('announcementText');
+  const toast = document.getElementById('toast');
+  const settingsOverlay = document.getElementById('settingsOverlay');
+  const personaDisplay = document.getElementById('personaDisplay');
+
+  // ========== 工具函数 ==========
+  function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  function showToast(msg, duration = 2000) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), duration);
+  }
+
+  function generateId() {
+    return 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  }
+
+  // ========== 人格显示卡片 ==========
+  function renderPersonaCard() {
+    if (!forumSettings.persona || forumSettings.persona.trim() === '') {
+      personaDisplay.innerHTML = `
+        <div class="persona-empty">
+          🧠 尚未设定论坛人格 · <span onclick="openForumSettings()" style="color:var(--primary);cursor:pointer;">点击设定</span>
+        </div>`;
+      return;
+    }
+
+    const isLong = forumSettings.persona.length > 80;
+    personaDisplay.innerHTML = `
+      <div class="persona-card">
+        <div class="persona-header">
+          <span>🧠</span> 当前人格设定
+          <span style="font-size:11px;opacity:0.7;">· ${forumSettings.audience}</span>
+        </div>
+        <div class="persona-text ${isLong ? '' : 'expanded'}" id="personaText">
+          ${escapeHtml(forumSettings.persona)}
+        </div>
+        ${isLong ? '<span class="persona-expand" onclick="togglePersonaText()">展开查看完整设定 ▼</span>' : ''}
+      </div>`;
+  }
+
+  function togglePersonaText() {
+    const text = document.getElementById('personaText');
+    const btn = document.querySelector('.persona-expand');
+    if (!text || !btn) return;
+    const isExpanded = text.classList.contains('expanded');
+    text.classList.toggle('expanded');
+    btn.textContent = isExpanded ? '展开查看完整设定 ▼' : '收起 ▲';
+  }
+
+  // ========== 论坛设置 ==========
+  function loadForumSettings() {
+    const saved = localStorage.getItem('forum_settings_v3');
+    if (saved) {
+      try {
+        forumSettings = JSON.parse(saved);
+      } catch (e) {}
+    }
+
+    document.getElementById('forumPersona').value = forumSettings.persona || '';
+    document.getElementById('forumAudience').value = forumSettings.audience || '学生群体';
+    document.getElementById('forumPostCount').value = forumSettings.postCount || 3;
+    document.getElementById('forumReplyCount').value = forumSettings.replyCount || 5;
+
+    document.querySelectorAll('.audience-tag').forEach(tag => {
+      tag.classList.toggle('selected', tag.dataset.value === forumSettings.audience);
+    });
+
+    renderPersonaCard();
+  }
+
+  function openForumSettings() {
+    loadForumSettings();
+    settingsOverlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeForumSettings() {
+    settingsOverlay.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
+  function saveForumSettings() {
+    forumSettings.persona = document.getElementById('forumPersona').value.trim();
+    forumSettings.audience = document.getElementById('forumAudience').value;
+    forumSettings.postCount = parseInt(document.getElementById('forumPostCount').value);
+    forumSettings.replyCount = parseInt(document.getElementById('forumReplyCount').value);
+
+    localStorage.setItem('forum_settings_v3', JSON.stringify(forumSettings));
+    closeForumSettings();
+    renderPersonaCard();
+    styleBadge.textContent = forumSettings.persona ? '自定义人格' : '默认';
+    showToast('✅ 设定已保存，正在重新生成论坛...');
+    generatePosts();
+  }
+
+  function applyPreset(key) {
+    const preset = personaPresets[key];
+    if (!preset) return;
+
+    document.getElementById('forumPersona').value = preset.persona;
+    document.getElementById('forumAudience').value = preset.audience;
+
+    document.querySelectorAll('.audience-tag').forEach(tag => {
+      tag.classList.toggle('selected', tag.dataset.value === preset.audience);
+    });
+
+    showToast('✅ 已应用「' + getPresetName(key) + '」预设', 1500);
+  }
+
+  function getPresetName(key) {
+    const names = {
+      cat: '哲学猫', hacker: '赛博黑客', ancient: '古代文人',
+      alien: '外星观察者', robot: '觉醒AI', fantasy: '奇幻冒险者',
+      office: '职场打工人', student: '高校学生'
+    };
+    return names[key] || key;
+  }
+
+  // ========== 人群标签点击 ==========
+  document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('audience-tag')) {
+      const value = e.target.dataset.value;
+      document.getElementById('forumAudience').value = value;
+      document.querySelectorAll('.audience-tag').forEach(t => t.classList.remove('selected'));
+      e.target.classList.add('selected');
+    }
+  });
+
+  // ========== AI生成论坛帖子 ==========
+  async function fetchForumPostsFromAI() {
+    let chatContext = '';
+    if (chatHistory && chatHistory.length > 0) {
+      chatContext = '\n\n【用户与AI的真实聊天记录（论坛讨论需围绕这些话题）】\n';
+      chatHistory.forEach(msg => {
+        const role = msg.role === 'user' ? currentUserName : 'AI助手';
+        chatContext += `${role}：${msg.content}\n`;
+      });
+    }
+
+    let personaPrompt = '';
+    if (forumSettings.persona) {
+      personaPrompt = `
+【论坛用户人格设定（极其重要！所有发言必须严格遵循）】
+${forumSettings.persona}
+
+请确保论坛中出现的每一位用户（楼主和所有回复者）都严格遵循以上人格设定。
+他们的发言风格、语气、用词习惯、世界观都必须与设定完全一致。
+`;
+    }
+
+    const prompt = `请生成一个网络论坛讨论。
+
+${chatContext}
+
+${personaPrompt}
+【基础设定】
+- 目标人群身份：${forumSettings.audience}
+- 帖子数量：${forumSettings.postCount}个
+- 每条帖子回复数：至少${forumSettings.replyCount}条
+
+【严格要求】
+1. 返回严格的JSON数组，不要任何markdown标记。
+2. 论坛讨论必须基于聊天记录中的话题。
+3. ${forumSettings.persona ? '所有用户的发言必须严格遵循人格设定，包括语气、用词、世界观。' : '发言风格自然，贴合人群特征。'}
+4. 每个帖子内容要丰富（3-6句话），有观点有细节。
+5. JSON格式：
+[
+  {
+    "author": "楼主昵称（${forumSettings.persona ? '必须符合人格设定' : '贴合人群特征'}）",
+    "level": "资深会员/新手上路/金牌会员",
+    "content": "帖子正文（${forumSettings.persona ? '语气和内容严格遵循人格设定' : '自然风格'}，3-6句话）",
+    "likes": 随机两位数,
+    "replies": [
+      {
+        "author": "回复者昵称（符合人格设定）",
+        "content": "回复内容（${forumSettings.persona ? '严格遵循人格设定的语气风格' : ''}，1-3句话）",
+        "nested": [
+          { "author": "楼中楼回复者", "content": "楼中楼内容（遵循人格设定）" }
+        ]
+      }
+    ]
+  }
+]`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 35000);
+
+    try {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [
+            {
+              role: "system",
+              content: `你是论坛内容生成器。只输出纯净JSON。${forumSettings.persona ? '你必须严格按照用户提供的人格设定来生成所有发言。每个论坛用户的语气、用词、世界观都必须与设定完全一致。' : '生成自然贴切的论坛内容。'}`
+            },
+            { role: "user", content: prompt }
+          ],
+          temperature: 0.95,
+          max_tokens: 2500
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error?.message || `API错误 (${response.status})`);
+      }
+
+      const data = await response.json();
+      let jsonStr = data.choices[0].message.content;
+      jsonStr = jsonStr.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+      return JSON.parse(jsonStr);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
+    }
+  }
+
+  // ========== AI生成用户发言的回复 ==========
+  async function fetchAIReply(postContent, userReply, isAnonymous) {
+    const replierName = isAnonymous ? '匿名用户' : currentUserName;
+
+    let personaContext = '';
+    if (forumSettings.persona) {
+      personaContext = `
+【论坛用户人格设定（AI回复必须严格遵循）】
+${forumSettings.persona}
+
+生成回复时，请确保回复者严格遵循以上人格设定。
+`;
+    }
+
+    const prompt = `在一个论坛帖子中，有人发表了回复。
+
+帖子原文：${postContent}
+
+用户「${replierName}」回复说：${userReply}
+
+${personaContext}
+请以论坛中其他用户的身份（${forumSettings.persona ? '严格遵循人格设定' : '自然风格'}），生成2-3条针对这个回复的回应（楼中楼）。
+
+返回JSON数组：
+[
+  { "author": "回应者昵称（${forumSettings.persona ? '符合人格设定' : ''}）", "content": "回应内容（${forumSettings.persona ? '严格遵循人格设定的语气风格' : ''}，1-2句话）" }
+]`;
+
+    try {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [
+            {
+              role: "system",
+              content: `你是论坛用户，只输出JSON数组。${forumSettings.persona ? '必须严格按照人格设定来生成回复。' : ''}`
+            },
+            { role: "user", content: prompt }
+          ],
+          temperature: 0.9,
+          max_tokens: 500
+        })
+      });
+
+      if (!response.ok) throw new Error('回复生成失败');
+      const data = await response.json();
+      let jsonStr = data.choices[0].message.content;
+      jsonStr = jsonStr.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+      return JSON.parse(jsonStr);
+    } catch (error) {
+      console.error('AI回复失败:', error);
+      return [{ author: '系统提示', content: '回复生成中，请稍后刷新查看' }];
+    }
+  }
+
+  // ========== 渲染帖子 ==========
+  function renderPosts(posts) {
+    if (!Array.isArray(posts) || posts.length === 0) {
+      postsContainer.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📭</div>
+          <div class="empty-state-title">暂无帖子</div>
+          <div class="empty-state-desc">请先与AI聊天，再打开论坛</div>
+          <div class="error-retry" onclick="generatePosts()" style="margin-top:16px;">🔄 点击生成</div>
+        </div>`;
+      return;
+    }
+
+    allPosts = posts;
+    let html = '';
+
+    posts.forEach((post, postIndex) => {
+      const postId = `post-${postIndex}`;
+      const replyCount = (post.replies || []).length;
+      const totalNested = (post.replies || []).reduce((sum, r) => sum + (r.nested || []).length, 0);
+      const isLongContent = (post.content || '').length > 200;
+      const userReplies = pendingReplies[postId] || [];
+
+      html += `
+        <div class="post-card" id="${postId}">
+          <div class="post-header">
+            <div class="avatar avatar-op">${escapeHtml((post.author || '?').charAt(0))}</div>
+            <div class="post-author-info">
+              <div class="post-author-row">
+                <span class="post-author-name">${escapeHtml(post.author || '匿名')}</span>
+                <span class="op-tag">🏷️ 楼主</span>
+                ${post.level ? `<span class="level-tag">${escapeHtml(post.level)}</span>` : ''}
+              </div>
+              <div class="post-time">发布于 刚刚</div>
+            </div>
+          </div>
+
+          <div class="post-body ${isLongContent ? 'collapsed' : ''}" id="body-${postId}">
+            ${formatContent(post.content || '')}
+          </div>
+          ${isLongContent ? `<span class="expand-btn" onclick="toggleContent('body-${postId}', this)">展开全文 ▼</span>` : ''}
+
+          <div class="post-actions">
+            <span class="post-action" onclick="likePost(this)">❤️ <span>${post.likes || 0}</span></span>
+            <span class="post-action">💬 ${replyCount + totalNested + userReplies.length}</span>
+            <span class="post-action">🔗 分享</span>
+            <span class="post-action">⭐ 收藏</span>
+          </div>
+
+          ${replyCount > 0 ? `
+            <div class="replies-section">
+              <div class="replies-toggle" onclick="toggleReplies('replies-${postId}', this)">
+                <span class="replies-toggle-icon">▶</span>
+                <span>查看全部回复</span>
+                <span class="replies-count">${replyCount}条回复</span>
+              </div>
+              <div class="replies-list" id="replies-${postId}">
+                ${renderReplies(post.replies, post.author, postId)}
+              </div>
+            </div>
+          ` : ''}
+
+          <div class="user-reply-section">
+            <div class="reply-input-row">
+              <input type="text" class="reply-input" id="replyInput-${postId}" 
+                     placeholder="${forumSettings.persona ? '用论坛人格的语气回复...' : '写下你的回复...'}" maxlength="500"
+                     onkeypress="if(event.key==='Enter')submitUserReply('${postId}')">
+              <button class="reply-submit-btn" onclick="submitUserReply('${postId}')">发送</button>
+            </div>
+            <div class="anonymous-toggle" onclick="toggleAnonymous('${postId}')">
+              <span class="anonymous-checkbox" id="anonCheck-${postId}"></span>
+              <span>匿名发言</span>
+            </div>
+            <div id="userReplies-${postId}">
+              ${renderUserReplies(userReplies, post.author)}
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    postsContainer.innerHTML = html;
+  }
+
+  function renderReplies(replies, opName, postId) {
+    if (!replies || replies.length === 0) return '';
+    const visibleCount = 3;
+    const hasMore = replies.length > visibleCount;
+    let html = '';
+
+    replies.forEach((reply, index) => {
+      const hiddenAttr = (hasMore && index >= visibleCount) ? 'style="display:none;" class="extra-reply"' : '';
+      html += `
+        <div class="reply-item" ${hiddenAttr}>
+          <div class="reply-header">
+            <div class="reply-avatar">${escapeHtml((reply.author || '?').charAt(0))}</div>
+            <span class="reply-author-name">${escapeHtml(reply.author || '匿名')}</span>
+          </div>
+          <div class="reply-body">${escapeHtml(reply.content || '')}</div>
+          <div class="reply-time">刚刚</div>
+          ${reply.nested && reply.nested.length > 0 ? `
+            <div class="nested-replies">
+              ${reply.nested.map(n => `
+                <div class="nested-reply">
+                  <div class="nested-reply-header">
+                    <div class="nested-reply-avatar">${escapeHtml((n.author || '?').charAt(0))}</div>
+                    <span class="nested-reply-name">${escapeHtml(n.author || '匿名')}</span>
+                  </div>
+                  <div class="nested-reply-body">${escapeHtml(n.content || '')}</div>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    });
+
+    if (hasMore) {
+      html += `<div class="show-more-replies" onclick="showMoreReplies(this, ${replies.length})">展开剩余 ${replies.length - visibleCount} 条回复 ▼</div>`;
+    }
+    return html;
+  }
+
+  function renderUserReplies(userReplies, opName) {
+    if (!userReplies || userReplies.length === 0) return '';
+    return userReplies.map(ur => `
+      <div class="reply-item" style="border-left: 2px solid var(--primary);">
+        <div class="reply-header">
+          <div class="reply-avatar">${escapeHtml((ur.author || '?').charAt(0))}</div>
+          <span class="reply-author-name">${escapeHtml(ur.author)} ${ur.isAnonymous ? '<span style="font-size:10px;color:#8e8e93;">(匿名)</span>' : ''}</span>
+          ${ur.isPending ? '<span class="ai-replying-indicator"><span class="typing-dots"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span> AI回复中</span>' : ''}
+        </div>
+        <div class="reply-body">${escapeHtml(ur.content)}</div>
+        ${ur.nestedReplies && ur.nestedReplies.length > 0 ? `
+          <div class="nested-replies">
+            ${ur.nestedReplies.map(n => `
+              <div class="nested-reply">
+                <div class="nested-reply-header">
+                  <div class="nested-reply-avatar">${escapeHtml((n.author || '?').charAt(0))}</div>
+                  <span class="nested-reply-name">${escapeHtml(n.author)}</span>
+                </div>
+                <div class="nested-reply-body">${escapeHtml(n.content)}</div>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+      </div>
+    `).join('');
+  }
+
+  // ========== 用户回复提交 ==========
+  async function submitUserReply(postId) {
+    const input = document.getElementById(`replyInput-${postId}`);
+    if (!input) return;
+    const content = input.value.trim();
+    if (!content) return;
+
+    const isAnonymous = document.getElementById(`anonCheck-${postId}`)?.classList.contains('checked') || false;
+    const authorName = isAnonymous ? '匿名用户' : currentUserName;
+
+    const userReply = {
+      id: generateId(),
+      author: authorName,
+      content: content,
+      isAnonymous: isAnonymous,
+      isPending: true,
+      nestedReplies: [],
+      timestamp: Date.now()
+    };
+
+    if (!pendingReplies[postId]) pendingReplies[postId] = [];
+    pendingReplies[postId].push(userReply);
+
+    input.value = '';
+    renderPosts(allPosts);
+
+    const repliesList = document.getElementById(`replies-${postId}`);
+    if (repliesList && !repliesList.classList.contains('expanded')) {
+      repliesList.classList.add('expanded');
+      const toggleIcon = repliesList.parentElement?.querySelector('.replies-toggle-icon');
+      if (toggleIcon) toggleIcon.classList.add('expanded');
+    }
+
+    showToast(isAnonymous ? '匿名回复已发送，AI正在回复...' : '回复已发送，AI正在回复...');
+
+    const post = allPosts.find((p, i) => `post-${i}` === postId);
+    const postContent = post ? post.content : '';
+
+    fetchAIReply(postContent, content, isAnonymous)
+      .then(nestedReplies => {
+        if (pendingReplies[postId]) {
+          const targetReply = pendingReplies[postId].find(r => r.id === userReply.id);
+          if (targetReply) {
+            targetReply.nestedReplies = nestedReplies;
+            targetReply.isPending = false;
+          }
+        }
+        renderPosts(allPosts);
+        showToast('✅ AI已回复你的发言');
+      })
+      .catch(err => {
+        console.error('AI回复失败:', err);
+        if (pendingReplies[postId]) {
+          const targetReply = pendingReplies[postId].find(r => r.id === userReply.id);
+          if (targetReply) {
+            targetReply.nestedReplies = [{ author: '系统', content: '回复生成失败，请稍后重试' }];
+            targetReply.isPending = false;
+          }
+        }
+        renderPosts(allPosts);
+      });
+  }
+
+  function toggleAnonymous(postId) {
+    const checkbox = document.getElementById(`anonCheck-${postId}`);
+    if (checkbox) checkbox.classList.toggle('checked');
+  }
+
+  // ========== 交互函数 ==========
+  function toggleContent(bodyId, btn) {
+    const body = document.getElementById(bodyId);
+    if (!body) return;
+    const isCollapsed = body.classList.contains('collapsed');
+    body.classList.toggle('collapsed');
+    btn.textContent = isCollapsed ? '收起 ▲' : '展开全文 ▼';
+  }
+
+  function toggleReplies(listId, toggleBtn) {
+    const list = document.getElementById(listId);
+    const icon = toggleBtn.querySelector('.replies-toggle-icon');
+    if (!list) return;
+    list.classList.toggle('expanded');
+    if (icon) icon.classList.toggle('expanded');
+  }
+
+  function showMoreReplies(btn, totalCount) {
+    const replyList = btn.parentElement;
+    const extraReplies = replyList.querySelectorAll('.extra-reply');
+    extraReplies.forEach(r => r.style.display = 'block');
+    btn.textContent = `共 ${totalCount} 条回复 · 收起 ▲`;
+    btn.onclick = function() {
+      extraReplies.forEach(r => r.style.display = 'none');
+      btn.textContent = `展开剩余 ${totalCount - 3} 条回复 ▼`;
+      btn.onclick = function() { showMoreReplies(btn, totalCount); };
+    };
+  }
+
+  function likePost(btn) {
+    btn.classList.add('liked');
+    const countSpan = btn.querySelector('span');
+    if (countSpan) countSpan.textContent = parseInt(countSpan.textContent) + 1;
+    setTimeout(() => btn.classList.remove('liked'), 600);
+    showToast('❤️ 已点赞');
+  }
+
+  function formatContent(content) {
+    if (!content) return '';
+    return escapeHtml(content).replace(/\\n/g, '<br>').replace(/\n/g, '<br>');
+  }
+
+  // ========== 备用数据 ==========
+  function useFallbackPosts() {
+    const hasPersona = forumSettings.persona ? true : false;
+    if (hasPersona) {
+      return [
+        {
+          author: forumSettings.persona.includes('猫') ? '橘猫苏格拉底' : '论坛居民A',
+          level: '资深会员',
+          content: forumSettings.persona.includes('猫') 
+            ? '人类又在讨论AI了，真是可笑喵~ AI不过是人类按照自己的形象创造的影子罢了喵。真正的智慧是知道什么时候该晒太阳什么时候该抓沙发喵呜~'
+            : '这个设定下的论坛讨论真的很有趣！大家都在用自己的方式表达观点。',
+          likes: 42,
+          replies: [
+            { author: forumSettings.persona.includes('猫') ? '暹罗柏拉图' : '用户B', content: forumSettings.persona.includes('猫') ? '说得对喵！人类总是高估自己的创造物喵~' : '同意！', nested: [] },
+            { author: forumSettings.persona.includes('猫') ? '英短亚里士多德' : '用户C', content: forumSettings.persona.includes('猫') ? '但不要忘了，猫也是被人类驯化的喵...不对，是我们驯化了人类喵！' : '有道理。', nested: [] },
+          ]
+        }
+      ];
+    }
+    return [
+      { author: "课代表小王", level: "资深会员", content: "大家都在讨论AI...", likes: 42, replies: [{ author: "学霸", content: "同意", nested: [] }] }
+    ];
+  }
+
+  // ========== 主生成函数 ==========
+  async function generatePosts() {
+    if (isGenerating) return;
+    isGenerating = true;
+
+    const personaSummary = forumSettings.persona 
+      ? forumSettings.persona.substring(0, 40) + '...' 
+      : '默认风格';
+
+    announcementText.textContent = `🧠 人格：${personaSummary} · 👥 ${forumSettings.audience}`;
+
+    postsContainer.innerHTML = `
+      <div class="loading-container">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">AI 正在基于人格设定生成论坛...</div>
+      </div>
+    `;
+
+    if (!DEEPSEEK_API_KEY || DEEPSEEK_API_KEY === 'sk-your-deepseek-api-key') {
+      setTimeout(() => {
+        renderPosts(useFallbackPosts());
+        isGenerating = false;
+        announcementText.textContent = '⚠️ 请先在主页面设置API密钥 · 当前为演示数据';
+      }, 1000);
+      return;
+    }
+
+    try {
+      const posts = await fetchForumPostsFromAI();
+      pendingReplies = {};
+      renderPosts(posts);
+      announcementText.textContent = `✅ 生成了 ${posts.length} 个讨论 · 人格设定已生效`;
+    } catch (error) {
+      console.error('生成失败:', error);
+      postsContainer.innerHTML = `
+        <div class="error-container">
+          😵 生成失败：${error.message}
+          <div class="error-retry" onclick="generatePosts()">点击重试</div>
+        </div>
+      `;
+      setTimeout(() => {
+        renderPosts(useFallbackPosts());
+        isGenerating = false;
+      }, 1500);
+      return;
+    }
+    isGenerating = false;
+  }
+
+  // ========== 监听主页面消息 ==========
+  window.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'syncData') {
+      if (event.data.style) currentStyle = event.data.style;
+      if (event.data.userName) currentUserName = event.data.userName;
+      if (event.data.apiKey) {
+        DEEPSEEK_API_KEY = event.data.apiKey;
+      }
+      if (event.data.chatHistory && event.data.chatHistory.length > 0) {
+        chatHistory = event.data.chatHistory;
+        generatePosts();
+      }
+    }
+    if (event.data && event.data.type === 'apiKeyUpdate') {
+      DEEPSEEK_API_KEY = event.data.apiKey;
+    }
+  });
+
+  // ========== 初始化 ==========
+  window.addEventListener('load', () => {
+    loadForumSettings();
+    renderPersonaCard();
+    styleBadge.textContent = forumSettings.persona ? '自定义人格' : '默认';
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'forumReady' }, '*');
+    }
+    generatePosts();
+  });
+
+  // 暴露全局函数
+  window.generatePosts = generatePosts;
+  window.toggleContent = toggleContent;
+  window.toggleReplies = toggleReplies;
+  window.showMoreReplies = showMoreReplies;
+  window.submitUserReply = submitUserReply;
+  window.toggleAnonymous = toggleAnonymous;
+  window.likePost = likePost;
+  window.openForumSettings = openForumSettings;
+  window.closeForumSettings = closeForumSettings;
+  window.saveForumSettings = saveForumSettings;
+  window.applyPreset = applyPreset;
+  window.togglePersonaText = togglePersonaText;
+</script>
+</body>
+</html>
