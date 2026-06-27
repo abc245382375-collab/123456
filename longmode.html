@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>长对话模式</title>
+  <link rel="stylesheet" href="longmode.css">
+</head>
+<body>
+<div class="longmode-container">
+  <h2>📖 长对话模式</h2>
+  <p class="subtitle">开启后AI将进行第三人称角色扮演，回复详细生动</p>
+
+  <!-- 开关 -->
+  <div class="toggle-card">
+    <div class="toggle-row">
+      <div>
+        <span class="toggle-label">🔮 启用长对话模式</span>
+        <span class="toggle-desc">开启后AI以第三人称叙事，包含描写与细节</span>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="longModeEnabled" onchange="toggleLongMode()">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <!-- 模式预设 -->
+  <div class="section">
+    <div class="section-title">📦 模式预设</div>
+    <div class="presets-row">
+      <span class="preset-chip" onclick="applyPreset('novel')">📚 小说叙事</span>
+      <span class="preset-chip" onclick="applyPreset('rpg')">🎮 RPG跑团</span>
+      <span class="preset-chip" onclick="applyPreset('diary')">📓 内心独白</span>
+      <span class="preset-chip" onclick="applyPreset('poetic')">🎭 诗意散文</span>
+      <span class="preset-chip" onclick="applyPreset('action')">⚔️ 动作冒险</span>
+      <span class="preset-chip" onclick="applyPreset('custom')">✏️ 完全自定义</span>
+    </div>
+  </div>
+
+  <!-- 叙事视角 -->
+  <div class="form-group">
+    <label>👁️ 叙事视角</label>
+    <select id="narrativeView">
+      <option value="third-person">第三人称（他/她）</option>
+      <option value="first-person">第一人称（我）</option>
+      <option value="second-person">第二人称（你）</option>
+      <option value="omniscient">全知视角</option>
+    </select>
+  </div>
+
+  <!-- 描写深度 -->
+  <div class="form-group">
+    <label>📝 描写深度</label>
+    <div class="depth-slider">
+      <input type="range" id="detailLevel" min="1" max="5" step="1" value="3" oninput="updateDetailLevel()">
+      <div class="depth-labels">
+        <span>简洁</span><span>适中</span><span>极详</span>
+      </div>
+    </div>
+    <div class="detail-desc" id="detailDesc">适中描写：包含动作和简单神态</div>
+  </div>
+
+  <!-- 回复长度 -->
+  <div class="form-group">
+    <label>📏 最小回复字数</label>
+    <select id="minWords">
+      <option value="100">100字（简短）</option>
+      <option value="200" selected>200字（适中）</option>
+      <option value="400">400字（较长）</option>
+      <option value="600">600字（长文）</option>
+      <option value="1000">1000字（超长）</option>
+    </select>
+  </div>
+
+  <!-- 描写要素 -->
+  <div class="form-group">
+    <label>🎨 包含要素（多选）</label>
+    <div class="checkbox-group">
+      <label class="checkbox-item">
+        <input type="checkbox" id="elemAction" checked> 动作描写
+      </label>
+      <label class="checkbox-item">
+        <input type="checkbox" id="elemExpression" checked> 神态描写
+      </label>
+      <label class="checkbox-item">
+        <input type="checkbox" id="elemPsychology" checked> 心理活动
+      </label>
+      <label class="checkbox-item">
+        <input type="checkbox" id="elemEnvironment"> 环境氛围
+      </label>
+      <label class="checkbox-item">
+        <input type="checkbox" id="elemDialogue"> 对话展开
+      </label>
+      <label class="checkbox-item">
+        <input type="checkbox" id="elemSensory"> 感官细节
+      </label>
+    </div>
+  </div>
+
+  <!-- 自定义指令 -->
+  <div class="form-group">
+    <label>📋 自定义写作指令</label>
+    <textarea id="customInstructions" rows="4" placeholder="额外写作要求，例如：&#10;每段结尾留下悬念&#10;多用比喻和拟人&#10;避免使用感叹号"></textarea>
+  </div>
+
+  <div class="status" id="statusText"></div>
+  <button class="save-btn" onclick="saveAndClose()">💾 保存长对话设置</button>
+</div>
+
+<script>
+  let longModeSettings = {
+    enabled: false,
+    narrativeView: 'third-person',
+    detailLevel: 3,
+    minWords: 200,
+    elements: {
+      action: true,
+      expression: true,
+      psychology: true,
+      environment: false,
+      dialogue: false,
+      sensory: false
+    },
+    customInstructions: ''
+  };
+
+  // 从父页面接收数据
+  window.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'syncFromParent' && e.data.longMode) {
+      longModeSettings = e.data.longMode;
+      updateUI();
+    }
+  });
+
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ type: 'requestSync' }, '*');
+  }
+
+  function updateUI() {
+    document.getElementById('longModeEnabled').checked = longModeSettings.enabled;
+    document.getElementById('narrativeView').value = longModeSettings.narrativeView;
+    document.getElementById('detailLevel').value = longModeSettings.detailLevel;
+    document.getElementById('minWords').value = longModeSettings.minWords;
+    document.getElementById('elemAction').checked = longModeSettings.elements.action;
+    document.getElementById('elemExpression').checked = longModeSettings.elements.expression;
+    document.getElementById('elemPsychology').checked = longModeSettings.elements.psychology;
+    document.getElementById('elemEnvironment').checked = longModeSettings.elements.environment;
+    document.getElementById('elemDialogue').checked = longModeSettings.elements.dialogue;
+    document.getElementById('elemSensory').checked = longModeSettings.elements.sensory;
+    document.getElementById('customInstructions').value = longModeSettings.customInstructions || '';
+    updateDetailLevel();
+    toggleLongMode();
+  }
+
+  window.toggleLongMode = function() {
+    longModeSettings.enabled = document.getElementById('longModeEnabled').checked;
+    const disabled = !longModeSettings.enabled;
+    ['narrativeView','detailLevel','minWords','customInstructions'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = disabled;
+    });
+    document.querySelectorAll('.form-group, .section').forEach(el => {
+      if (el.querySelector('.toggle-row')) return;
+      el.style.opacity = disabled ? '0.5' : '1';
+      el.style.pointerEvents = disabled ? 'none' : 'auto';
+    });
+  };
+
+  window.updateDetailLevel = function() {
+    longModeSettings.detailLevel = parseInt(document.getElementById('detailLevel').value);
+    const descs = ['','简洁：仅核心动作','轻描：动作+简短神态','适中：动作+神态+心理','详细：动作+神态+心理+环境','极详：全方位描写+感官细节'];
+    document.getElementById('detailDesc').textContent = descs[longModeSettings.detailLevel] || '';
+  };
+
+  window.applyPreset = function(type) {
+    const presets = {
+      novel: {
+        enabled: true, narrativeView: 'third-person', detailLevel: 4, minWords: 400,
+        elements: { action: true, expression: true, psychology: true, environment: true, dialogue: true, sensory: true },
+        customInstructions: '像写小说一样叙述，注重情节推进和人物塑造。每段结尾留下悬念或情感余韵。'
+      },
+      rpg: {
+        enabled: true, narrativeView: 'second-person', detailLevel: 3, minWords: 200,
+        elements: { action: true, expression: true, psychology: false, environment: true, dialogue: true, sensory: false },
+        customInstructions: '像跑团主持人一样叙述。描述场景后，在结尾给出选项或行动提示。用「你」来称呼玩家。'
+      },
+      diary: {
+        enabled: true, narrativeView: 'first-person', detailLevel: 4, minWords: 300,
+        elements: { action: false, expression: true, psychology: true, environment: true, dialogue: false, sensory: true },
+        customInstructions: '以角色内心独白的方式写作。大量心理描写和情感流露，像在读一本私人日记。'
+      },
+      poetic: {
+        enabled: true, narrativeView: 'third-person', detailLevel: 5, minWords: 300,
+        elements: { action: true, expression: true, psychology: true, environment: true, dialogue: true, sensory: true },
+        customInstructions: '使用诗意化的语言。多使用比喻、拟人、排比等修辞手法。文字优美如散文诗。'
+      },
+      action: {
+        enabled: true, narrativeView: 'third-person', detailLevel: 3, minWords: 200,
+        elements: { action: true, expression: true, psychology: false, environment: true, dialogue: true, sensory: true },
+        customInstructions: '注重动作场面的描写。快节奏，短句为主。描写打击感、速度感、紧张氛围。'
+      },
+      custom: {
+        enabled: true, narrativeView: 'third-person', detailLevel: 3, minWords: 200,
+        elements: { action: true, expression: true, psychology: true, environment: true, dialogue: true, sensory: true },
+        customInstructions: ''
+      }
+    };
+    if (presets[type]) {
+      longModeSettings = presets[type];
+      updateUI();
+      document.getElementById('statusText').textContent = '✅ 已应用预设';
+      setTimeout(() => { document.getElementById('statusText').textContent = ''; }, 1500);
+    }
+  };
+
+  function saveAndClose() {
+    longModeSettings.enabled = document.getElementById('longModeEnabled').checked;
+    longModeSettings.narrativeView = document.getElementById('narrativeView').value;
+    longModeSettings.detailLevel = parseInt(document.getElementById('detailLevel').value);
+    longModeSettings.minWords = parseInt(document.getElementById('minWords').value);
+    longModeSettings.elements.action = document.getElementById('elemAction').checked;
+    longModeSettings.elements.expression = document.getElementById('elemExpression').checked;
+    longModeSettings.elements.psychology = document.getElementById('elemPsychology').checked;
+    longModeSettings.elements.environment = document.getElementById('elemEnvironment').checked;
+    longModeSettings.elements.dialogue = document.getElementById('elemDialogue').checked;
+    longModeSettings.elements.sensory = document.getElementById('elemSensory').checked;
+    longModeSettings.customInstructions = document.getElementById('customInstructions').value.trim();
+
+    localStorage.setItem('long_mode_settings', JSON.stringify(longModeSettings));
+
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'saveLongMode', longMode: longModeSettings }, '*');
+    }
+
+    document.getElementById('statusText').textContent = '✅ 已保存';
+    document.getElementById('statusText').style.color = '#34c759';
+    setTimeout(() => { document.getElementById('statusText').textContent = ''; }, 1500);
+  }
+</script>
+</body>
+</html>
